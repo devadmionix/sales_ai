@@ -1,0 +1,223 @@
+{
+ "actions": [],
+ "autoname": "format:SAI-RUN-{YYYY}-{#####}",
+ "creation": "2026-09-15 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "session",
+  "user",
+  "status",
+  "column_break_head",
+  "agent_profile",
+  "model",
+  "iterations",
+  "background",
+  "trigger",
+  "section_break_io",
+  "prompt",
+  "response",
+  "error",
+  "section_break_question",
+  "question",
+  "section_break_steps",
+  "steps",
+  "section_break_usage",
+  "prompt_tokens",
+  "completion_tokens",
+  "column_break_usage",
+  "total_tokens",
+  "started_at",
+  "ended_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "session",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Session",
+   "options": "Sales AI Session",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "User",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "default": "Running",
+   "description": "Paused means a human has been asked to approve a tool call.",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Running\nPaused\nCompleted\nStopped\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "agent_profile",
+   "fieldtype": "Link",
+   "label": "Agent Profile",
+   "options": "Sales AI Agent Profile",
+   "read_only": 1
+  },
+  {
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "Model",
+   "read_only": 1
+  },
+  {
+   "fieldname": "iterations",
+   "fieldtype": "Int",
+   "label": "Iterations",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Ran on a worker with nobody watching, so an approval was raised as a to-do rather than asked on screen.",
+   "fieldname": "background",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Unattended",
+   "read_only": 1
+  },
+  {
+   "fieldname": "trigger",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Trigger",
+   "options": "Sales AI Trigger",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_io",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "prompt",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Prompt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "response",
+   "fieldtype": "Text",
+   "label": "Response",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Text",
+   "label": "Error",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.status=='Paused'",
+   "fieldname": "section_break_question",
+   "fieldtype": "Section Break",
+   "label": "Awaiting Approval"
+  },
+  {
+   "description": "The tool call a human has been asked about, and the options offered.",
+   "fieldname": "question",
+   "fieldtype": "JSON",
+   "label": "Question",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_steps",
+   "fieldtype": "Section Break",
+   "label": "Steps"
+  },
+  {
+   "fieldname": "steps",
+   "fieldtype": "Table",
+   "label": "Steps",
+   "options": "Sales AI Run Step",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_usage",
+   "fieldtype": "Section Break",
+   "label": "Usage"
+  },
+  {
+   "fieldname": "prompt_tokens",
+   "fieldtype": "Int",
+   "label": "Prompt Tokens",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completion_tokens",
+   "fieldtype": "Int",
+   "label": "Completion Tokens",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_usage",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_tokens",
+   "fieldtype": "Int",
+   "label": "Total Tokens",
+   "read_only": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ended_at",
+   "fieldtype": "Datetime",
+   "label": "Ended At",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Run",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "if_owner": 1,
+   "read": 1,
+   "role": "All"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "prompt",
+ "track_changes": 0
+}

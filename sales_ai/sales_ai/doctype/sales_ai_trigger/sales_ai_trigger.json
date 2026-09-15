@@ -1,0 +1,201 @@
+{
+ "actions": [],
+ "autoname": "format:SAI-TRG-{#####}",
+ "creation": "2026-09-15 00:00:00",
+ "description": "Starts an agent run on its own, either when a document changes or on a schedule. Runs act as the chosen user and can only do what that user could do.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "enabled",
+  "trigger_type",
+  "runs",
+  "column_break_head",
+  "agent_profile",
+  "playbook",
+  "run_as",
+  "section_break_event",
+  "reference_doctype",
+  "event",
+  "debounce_minutes",
+  "column_break_event",
+  "condition",
+  "section_break_schedule",
+  "cron",
+  "last_fired_at",
+  "section_break_prompt",
+  "prompt_template"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "Off by default. A trigger that has never been watched running should not start running by itself.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "default": "Document Event",
+   "fieldname": "trigger_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Trigger Type",
+   "options": "Document Event\nScheduled",
+   "reqd": 1
+  },
+  {
+   "default": "Agent",
+   "description": "An Agent is given an instruction and decides what to do. A Playbook follows steps somebody wrote in advance.",
+   "fieldname": "runs",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Runs",
+   "options": "Agent\nPlaybook",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.runs=='Agent'",
+   "fieldname": "agent_profile",
+   "fieldtype": "Link",
+   "label": "Agent Profile",
+   "mandatory_depends_on": "eval:doc.runs=='Agent'",
+   "options": "Sales AI Agent Profile"
+  },
+  {
+   "depends_on": "eval:doc.runs=='Playbook'",
+   "fieldname": "playbook",
+   "fieldtype": "Link",
+   "label": "Playbook",
+   "mandatory_depends_on": "eval:doc.runs=='Playbook'",
+   "options": "Sales AI Playbook"
+  },
+  {
+   "description": "The run acts as this person: it sees only what they can see, writes only what they may write, and it is they who are asked to approve anything that needs approval.",
+   "fieldname": "run_as",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Run As",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Document Event'",
+   "fieldname": "section_break_event",
+   "fieldtype": "Section Break",
+   "label": "Document Event"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Document Type",
+   "mandatory_depends_on": "eval:doc.trigger_type=='Document Event'",
+   "options": "DocType"
+  },
+  {
+   "default": "after_insert",
+   "fieldname": "event",
+   "fieldtype": "Select",
+   "label": "Event",
+   "mandatory_depends_on": "eval:doc.trigger_type=='Document Event'",
+   "options": "after_insert\non_update\non_submit\non_cancel"
+  },
+  {
+   "default": "0",
+   "description": "Ignore repeat events for the same document within this many minutes. on_update fires on every save, so give it a window.",
+   "fieldname": "debounce_minutes",
+   "fieldtype": "Int",
+   "label": "Debounce (Minutes)",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_event",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Optional Python expression. The run only starts if it is true. `doc` is the document as a dict. Anything that errors counts as false.",
+   "fieldname": "condition",
+   "fieldtype": "Code",
+   "label": "Condition",
+   "options": "PythonExpression"
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Scheduled'",
+   "fieldname": "section_break_schedule",
+   "fieldtype": "Section Break",
+   "label": "Schedule"
+  },
+  {
+   "description": "Cron expression, e.g. <code>0 8 * * 1-5</code> for 8am on weekdays. Checked every five minutes, so anything finer than that will not fire more often.",
+   "fieldname": "cron",
+   "fieldtype": "Data",
+   "label": "Cron",
+   "mandatory_depends_on": "eval:doc.trigger_type=='Scheduled'"
+  },
+  {
+   "fieldname": "last_fired_at",
+   "fieldtype": "Datetime",
+   "label": "Last Fired At",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.runs=='Agent'",
+   "fieldname": "section_break_prompt",
+   "fieldtype": "Section Break",
+   "label": "Instruction"
+  },
+  {
+   "description": "What to ask the agent, as a Jinja template. <code>{{ doc }}</code> is the document that fired it (document events only) and <code>{{ now }}</code> is the current time. Remember that field values here are written by outsiders.",
+   "fieldname": "prompt_template",
+   "fieldtype": "Small Text",
+   "label": "Prompt Template",
+   "mandatory_depends_on": "eval:doc.runs=='Agent'"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "group": "Runs",
+   "link_doctype": "Sales AI Run",
+   "link_fieldname": "trigger"
+  }
+ ],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Trigger",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

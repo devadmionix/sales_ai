@@ -1,0 +1,107 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:title",
+ "creation": "2026-09-15 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "enabled",
+  "column_break_head",
+  "model",
+  "max_iterations",
+  "section_break_prompt",
+  "system_prompt",
+  "section_break_tools",
+  "tools"
+ ],
+ "fields": [
+  {
+   "description": "What this agent is for, e.g. <code>Lead Qualification</code>.",
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "model",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Model",
+   "options": "Sales AI Model",
+   "reqd": 1
+  },
+  {
+   "default": "12",
+   "description": "Hard ceiling on tool-calling rounds in one run. Stops a stuck model from burning tokens.",
+   "fieldname": "max_iterations",
+   "fieldtype": "Int",
+   "label": "Max Iterations",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_break_prompt",
+   "fieldtype": "Section Break",
+   "label": "Instructions"
+  },
+  {
+   "description": "The agent's standing instructions. Written by you, never by a user or a document.",
+   "fieldname": "system_prompt",
+   "fieldtype": "Text Editor",
+   "label": "System Prompt"
+  },
+  {
+   "fieldname": "section_break_tools",
+   "fieldtype": "Section Break",
+   "label": "Tools"
+  },
+  {
+   "description": "The only tools this agent may call. Leave empty and it can call nothing.",
+   "fieldname": "tools",
+   "fieldtype": "Table",
+   "label": "Tools",
+   "options": "Sales AI Agent Tool"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Agent Profile",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

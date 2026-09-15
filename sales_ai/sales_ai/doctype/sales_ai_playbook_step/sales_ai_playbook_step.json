@@ -1,0 +1,219 @@
+{
+ "actions": [],
+ "creation": "2026-09-15 00:00:00",
+ "description": "One step of a playbook. Steps run in order; a Condition or Approval step can send the run somewhere else.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "step_key",
+  "step_type",
+  "label",
+  "section_break_tool",
+  "tool",
+  "arguments",
+  "section_break_ai",
+  "prompt",
+  "output_format",
+  "section_break_condition",
+  "condition",
+  "section_break_wait",
+  "wait_for",
+  "wait_unit",
+  "section_break_approval",
+  "question",
+  "section_break_loop",
+  "loop_over",
+  "loop_as",
+  "loop_end",
+  "section_break_output",
+  "summary",
+  "section_break_branch",
+  "on_false"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "description": "A short name for this step, used to refer to its result later (<code>{{ find.records }}</code>) and as a jump target. Letters, digits and underscores.",
+   "fieldname": "step_key",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Key",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "default": "Tool",
+   "fieldname": "step_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Tool\nAI\nCondition\nWait\nApproval\nLoop\nOutput",
+   "reqd": 1
+  },
+  {
+   "columns": 3,
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "depends_on": "eval:doc.step_type=='Tool'",
+   "fieldname": "section_break_tool",
+   "fieldtype": "Section Break",
+   "label": "Tool"
+  },
+  {
+   "description": "One of the registered Sales AI tools. Tool steps go through the same approval policy as the chat agent.",
+   "fieldname": "tool",
+   "fieldtype": "Data",
+   "label": "Tool",
+   "mandatory_depends_on": "eval:doc.step_type=='Tool'"
+  },
+  {
+   "description": "A JSON object of arguments. Text values may use <code>{{ }}</code> to refer to earlier steps, <code>{{ doc }}</code> and <code>{{ now }}</code>.",
+   "fieldname": "arguments",
+   "fieldtype": "Code",
+   "label": "Arguments",
+   "options": "JSON"
+  },
+  {
+   "depends_on": "eval:doc.step_type=='AI'",
+   "fieldname": "section_break_ai",
+   "fieldtype": "Section Break",
+   "label": "AI"
+  },
+  {
+   "description": "What to ask the model. An AI step reads and judges; it cannot call tools or change anything.",
+   "fieldname": "prompt",
+   "fieldtype": "Small Text",
+   "label": "Prompt",
+   "mandatory_depends_on": "eval:doc.step_type=='AI'"
+  },
+  {
+   "default": "Text",
+   "description": "JSON asks the model for a JSON object, so later steps can use individual values. Unparseable output fails the step.",
+   "fieldname": "output_format",
+   "fieldtype": "Select",
+   "label": "Output Format",
+   "options": "Text\nJSON"
+  },
+  {
+   "depends_on": "eval:doc.step_type=='Condition'",
+   "fieldname": "section_break_condition",
+   "fieldtype": "Section Break",
+   "label": "Condition"
+  },
+  {
+   "description": "A Python expression. Earlier steps are available by key.",
+   "fieldname": "condition",
+   "fieldtype": "Code",
+   "label": "Condition",
+   "mandatory_depends_on": "eval:doc.step_type=='Condition'",
+   "options": "PythonExpression"
+  },
+  {
+   "depends_on": "eval:doc.step_type=='Wait'",
+   "fieldname": "section_break_wait",
+   "fieldtype": "Section Break",
+   "label": "Wait"
+  },
+  {
+   "default": "0",
+   "fieldname": "wait_for",
+   "fieldtype": "Int",
+   "label": "Wait For",
+   "mandatory_depends_on": "eval:doc.step_type=='Wait'",
+   "non_negative": 1
+  },
+  {
+   "default": "Days",
+   "description": "The run is put down and picked up again when the time is up. Checked every five minutes.",
+   "fieldname": "wait_unit",
+   "fieldtype": "Select",
+   "label": "Unit",
+   "options": "Minutes\nHours\nDays"
+  },
+  {
+   "depends_on": "eval:doc.step_type=='Approval'",
+   "fieldname": "section_break_approval",
+   "fieldtype": "Section Break",
+   "label": "Approval"
+  },
+  {
+   "description": "What to ask the person the playbook runs as. The run waits until they answer.",
+   "fieldname": "question",
+   "fieldtype": "Small Text",
+   "label": "Question",
+   "mandatory_depends_on": "eval:doc.step_type=='Approval'"
+  },
+  {
+   "depends_on": "eval:doc.step_type=='Loop'",
+   "fieldname": "section_break_loop",
+   "fieldtype": "Section Break",
+   "label": "Loop"
+  },
+  {
+   "description": "A Python expression that gives a list, e.g. <code>find['records']</code>.",
+   "fieldname": "loop_over",
+   "fieldtype": "Code",
+   "label": "Over",
+   "mandatory_depends_on": "eval:doc.step_type=='Loop'",
+   "options": "PythonExpression"
+  },
+  {
+   "default": "item",
+   "description": "The name each element takes inside the loop.",
+   "fieldname": "loop_as",
+   "fieldtype": "Data",
+   "label": "As",
+   "mandatory_depends_on": "eval:doc.step_type=='Loop'"
+  },
+  {
+   "description": "The key of the last step inside the loop. Everything from here to there repeats.",
+   "fieldname": "loop_end",
+   "fieldtype": "Data",
+   "label": "Last Step In Loop",
+   "mandatory_depends_on": "eval:doc.step_type=='Loop'"
+  },
+  {
+   "depends_on": "eval:doc.step_type=='Output'",
+   "fieldname": "section_break_output",
+   "fieldtype": "Section Break",
+   "label": "Output"
+  },
+  {
+   "description": "What this run should say it did, as a template. Shown on the run and in the notification.",
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "Summary",
+   "mandatory_depends_on": "eval:doc.step_type=='Output'"
+  },
+  {
+   "depends_on": "eval:['Condition','Approval'].includes(doc.step_type)",
+   "fieldname": "section_break_branch",
+   "fieldtype": "Section Break",
+   "label": "Branch"
+  },
+  {
+   "description": "Where to go when the condition is false, or the approval is denied. Leave empty to finish the run.",
+   "fieldname": "on_false",
+   "fieldtype": "Data",
+   "label": "Otherwise Go To"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Playbook Step",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

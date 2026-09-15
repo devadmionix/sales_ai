@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:title",
+ "creation": "2026-09-15 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "enabled",
+  "section_break_credentials",
+  "api_key",
+  "base_url",
+  "section_break_params",
+  "extra_params"
+ ],
+ "fields": [
+  {
+   "description": "A name for this endpoint, e.g. <code>Anthropic</code> or <code>Local Ollama</code>.",
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "section_break_credentials",
+   "fieldtype": "Section Break",
+   "label": "Credentials"
+  },
+  {
+   "description": "Shared by every model linked to this provider. A model may override it.",
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "label": "API Key"
+  },
+  {
+   "description": "Endpoint URL. Leave blank for the provider's default, or set it for a self-hosted server or proxy, e.g. <code>http://localhost:11434</code>.",
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Base URL"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_params",
+   "fieldtype": "Section Break",
+   "label": "Default Parameters"
+  },
+  {
+   "description": "JSON object applied to every model on this provider, e.g. <code>{\"temperature\": 0.2}</code>. A model's own parameters win.",
+   "fieldname": "extra_params",
+   "fieldtype": "JSON",
+   "label": "Extra Params"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Provider",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

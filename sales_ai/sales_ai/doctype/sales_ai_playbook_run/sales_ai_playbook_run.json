@@ -1,0 +1,234 @@
+{
+ "actions": [],
+ "autoname": "format:SAI-PBR-{YYYY}-{#####}",
+ "creation": "2026-09-15 00:00:00",
+ "description": "One execution of a playbook. Holds everything needed to pick the run up again after a wait or an approval.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "playbook",
+  "status",
+  "user",
+  "column_break_head",
+  "trigger",
+  "reference_doctype",
+  "reference_name",
+  "section_break_state",
+  "cursor",
+  "steps_taken",
+  "total_tokens",
+  "column_break_state",
+  "started_at",
+  "ended_at",
+  "resume_at",
+  "section_break_result",
+  "summary",
+  "error",
+  "section_break_trace",
+  "trace",
+  "section_break_graph",
+  "graph",
+  "section_break_internals",
+  "variables",
+  "question"
+ ],
+ "fields": [
+  {
+   "fieldname": "playbook",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Playbook",
+   "options": "Sales AI Playbook",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "default": "Running",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Running\nWaiting\nPaused\nCompleted\nStopped\nFailed",
+   "read_only": 1
+  },
+  {
+   "description": "The run acts as this person throughout, and it is they who are asked to approve anything.",
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Run As",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "trigger",
+   "fieldtype": "Link",
+   "label": "Trigger",
+   "options": "Sales AI Trigger",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Document Type",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Document",
+   "options": "reference_doctype",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_state",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "The step to execute next.",
+   "fieldname": "cursor",
+   "fieldtype": "Data",
+   "label": "Next Step",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "steps_taken",
+   "fieldtype": "Int",
+   "label": "Steps Taken",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "total_tokens",
+   "fieldtype": "Int",
+   "label": "Tokens",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_state",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ended_at",
+   "fieldtype": "Datetime",
+   "label": "Ended At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resume_at",
+   "fieldtype": "Datetime",
+   "label": "Resume At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_result",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "Summary",
+   "read_only": 1
+  },
+  {
+   "depends_on": "error",
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_trace",
+   "fieldtype": "Section Break",
+   "label": "Trace"
+  },
+  {
+   "fieldname": "trace",
+   "fieldtype": "Table",
+   "label": "Trace",
+   "options": "Sales AI Playbook Run Step",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_graph",
+   "fieldtype": "Section Break",
+   "label": "Path Taken"
+  },
+  {
+   "fieldname": "graph",
+   "fieldtype": "HTML",
+   "label": "Graph"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_internals",
+   "fieldtype": "Section Break",
+   "label": "Working State"
+  },
+  {
+   "description": "What each step produced, carried between steps.",
+   "fieldname": "variables",
+   "fieldtype": "Code",
+   "label": "Variables",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "question",
+   "fieldtype": "Code",
+   "label": "Question",
+   "options": "JSON",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Playbook Run",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "if_owner": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  },
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}
