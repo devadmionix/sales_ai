@@ -17,6 +17,7 @@ the calling code, so swapping providers is a configuration change and not a code
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Generator
 from typing import Any
 
@@ -135,7 +136,19 @@ class Model:
 		finish_reason = None
 		model = self.model_id
 
-		for chunk in chunks:
+		# `litellm.completion(stream=True)` returns before it has spoken to the provider, so a
+		# refusal — a rate limit above all — arrives on the first pull rather than at the call
+		# above. Only the pull is guarded; a bug in the parsing below is ours, not the
+		# provider's, and must not be reported as theirs.
+		stream = iter(chunks)
+		while True:
+			try:
+				chunk = next(stream)
+			except StopIteration:
+				break
+			except Exception as e:
+				_rethrow(e, self.model_id)
+
 			if chunk_usage := _parse_usage(getattr(chunk, "usage", None)):
 				usage = chunk_usage
 			model = getattr(chunk, "model", None) or model
@@ -250,9 +263,52 @@ def _decode_arguments(raw: str | None) -> tuple[dict[str, Any], str | None]:
 
 def _rethrow(error: Exception, model_id: str) -> None:
 	"""Surface provider failures as a Frappe error without leaking the API key."""
-	message = str(error)
-	frappe.log_error(title=f"Sales AI: model call failed ({model_id})", message=frappe.get_traceback())
+	frappe.log_error(
+		title=f"Sales AI: model call failed ({model_id})", message=_redact(frappe.get_traceback())
+	)
+
+	# litellm re-wraps a mid-stream failure as MidStreamFallbackError but copies the original
+	# status across, so the code is a steadier signal than the class name.
+	if getattr(error, "status_code", None) == 429 or type(error).__name__ == "RateLimitError":
+		# Not a fault, and not something logging harder will fix. Saying "the assistant could
+		# not finish" sends someone hunting a bug that is really a quota to wait out or raise.
+		frappe.throw(
+			_(
+				"{0} is being rate-limited, so the assistant cannot reply right now. This is the "
+				"provider's quota, not a fault in ERPNext — wait and try again, or raise the "
+				"plan's limit. The provider said: {1}"
+			).format(model_id, _provider_reason(error)),
+			title=_("Provider Rate Limit"),
+		)
+
 	frappe.throw(
-		_("The AI provider could not be reached: {0}").format(message[:300]),
+		_("The AI provider could not be reached: {0}").format(_redact(str(error))[:300]),
 		title=_("Model Error"),
 	)
+
+
+# The provider's explanation, inside the error body litellm passes through. Matched rather
+# than JSON-parsed because the body often arrives as the repr of a bytes object, whose
+# backslash escapes are no longer valid JSON.
+_PROVIDER_MESSAGE = re.compile(r'"message"\s*:\s*"((?:[^"\\]|\\.)*)"')
+
+
+def _provider_reason(error: Exception) -> str:
+	"""The provider's own sentence, without the several hundred characters of quota
+	bookkeeping it usually arrives wrapped in."""
+	text = _redact(str(error))
+	if found := _PROVIDER_MESSAGE.search(text):
+		text = re.sub(r"\\+n", " ", found.group(1)).replace('\\"', '"')
+	# Providers spend most of their reply pointing at documentation. Which limit was hit and how
+	# long to wait are what the reader needs, so the signposting sentences give up their budget.
+	sentences = [s for s in re.split(r"(?<=\.)\s+", text) if not re.search(r"https?://", s)]
+	return " ".join(" ".join(sentences or [text]).split())[:400]
+
+
+# litellm builds the request URL with the key in it, and that URL turns up in exception
+# messages and tracebacks — which we write to the Error Log and show to the user.
+_KEY_IN_URL = re.compile(r"([?&](?:key|api_key|access_token)=)[^&\s\"']+", re.IGNORECASE)
+
+
+def _redact(text: str) -> str:
+	return _KEY_IN_URL.sub(r"\1[redacted]", text)
