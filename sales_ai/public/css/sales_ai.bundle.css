@@ -1,0 +1,400 @@
+/* Copyright (c) 2026, Admionix and contributors */
+/* For license information, please see license.txt */
+
+/* Every rule is prefixed `sai-` and scoped under `.sai-root`, so nothing here can
+   reach a desk element. Colours come from frappe's own variables, which is what makes
+   the panel follow the light and dark themes without a second stylesheet. */
+
+.sai-root {
+	--sai-width: 400px;
+	/* Under frappe's modals (1050), above the page content. */
+	--sai-z: 1025;
+}
+
+.sai-launcher {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	z-index: var(--sai-z);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: none;
+	border-radius: var(--border-radius-full);
+	background: var(--primary);
+	color: white;
+	box-shadow: var(--shadow-md);
+	cursor: pointer;
+}
+
+.sai-launcher:hover {
+	box-shadow: var(--shadow-lg);
+}
+
+.sai-panel {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	z-index: var(--sai-z);
+	display: flex;
+	flex-direction: column;
+	width: var(--sai-width);
+	max-width: 100vw;
+	background: var(--fg-color);
+	border-left: 1px solid var(--border-color);
+	box-shadow: var(--shadow-lg);
+	font-size: var(--text-sm);
+	color: var(--text-color);
+}
+
+/* -- header ------------------------------------------------------------------ */
+
+.sai-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--padding-sm) var(--padding-md);
+	border-bottom: 1px solid var(--border-color);
+}
+
+.sai-title {
+	font-weight: 600;
+}
+
+.sai-head-actions {
+	display: flex;
+	gap: 4px;
+}
+
+.sai-icon {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: var(--border-radius);
+	background: transparent;
+	color: var(--text-muted);
+	font-size: 16px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.sai-icon:hover {
+	background: var(--control-bg);
+	color: var(--text-color);
+}
+
+.sai-context {
+	padding: 6px var(--padding-md);
+	border-bottom: 1px solid var(--border-color);
+	background: var(--subtle-accent);
+	color: var(--text-muted);
+	font-size: var(--text-sm);
+}
+
+/* -- recent conversations ----------------------------------------------------- */
+
+.sai-recent {
+	max-height: 220px;
+	overflow-y: auto;
+	border-bottom: 1px solid var(--border-color);
+	background: var(--control-bg);
+}
+
+.sai-recent-item {
+	display: block;
+	width: 100%;
+	padding: 8px var(--padding-md);
+	border: none;
+	background: transparent;
+	color: var(--text-color);
+	text-align: left;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: pointer;
+}
+
+.sai-recent-item:hover {
+	background: var(--fg-color);
+}
+
+.sai-recent-empty {
+	padding: 8px var(--padding-md);
+	color: var(--text-muted);
+}
+
+/* -- messages ----------------------------------------------------------------- */
+
+.sai-body {
+	flex: 1;
+	overflow-y: auto;
+	padding: var(--padding-md);
+}
+
+.sai-empty {
+	padding: var(--padding-lg) 0;
+	color: var(--text-muted);
+	text-align: center;
+}
+
+.sai-msg {
+	margin-bottom: var(--padding-md);
+	display: flex;
+	flex-direction: column;
+}
+
+.sai-msg-user {
+	align-items: flex-end;
+}
+
+.sai-bubble {
+	max-width: 92%;
+	padding: 8px 12px;
+	border-radius: var(--border-radius-md);
+	background: var(--control-bg);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.sai-msg-user .sai-bubble {
+	background: var(--primary);
+	color: white;
+}
+
+.sai-markdown {
+	white-space: normal;
+}
+
+.sai-markdown p:last-child {
+	margin-bottom: 0;
+}
+
+.sai-markdown table {
+	width: 100%;
+	margin-bottom: 8px;
+	border-collapse: collapse;
+}
+
+.sai-markdown th,
+.sai-markdown td {
+	padding: 4px 6px;
+	border: 1px solid var(--border-color);
+	text-align: left;
+}
+
+/* -- tool activity ------------------------------------------------------------ */
+
+.sai-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-bottom: 4px;
+}
+
+.sai-tool {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 2px 8px;
+	border-radius: var(--border-radius-full);
+	background: var(--control-bg);
+	color: var(--text-muted);
+	font-size: 11px;
+}
+
+.sai-tool-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: var(--border-radius-full);
+	background: var(--gray-500);
+}
+
+.sai-tool-running .sai-tool-dot {
+	background: var(--primary);
+	animation: sai-pulse 1s ease-in-out infinite;
+}
+
+.sai-tool-failed .sai-tool-dot {
+	background: var(--red-500);
+}
+
+@keyframes sai-pulse {
+	50% {
+		opacity: 0.25;
+	}
+}
+
+.sai-thinking {
+	color: var(--text-muted);
+}
+
+.sai-error {
+	margin-top: var(--padding-sm);
+	padding: 8px 12px;
+	border-radius: var(--border-radius-md);
+	background: var(--surface-red-1);
+	color: var(--ink-red-3);
+}
+
+/* -- approval ----------------------------------------------------------------- */
+
+.sai-approval {
+	margin-top: var(--padding-sm);
+	padding: var(--padding-sm);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	background: var(--subtle-accent);
+}
+
+.sai-approval-prompt {
+	margin-bottom: 6px;
+	font-weight: 600;
+}
+
+.sai-approval-args {
+	max-height: 140px;
+	margin: 6px 0 0;
+	padding: 6px 8px;
+	overflow: auto;
+	border-radius: var(--border-radius);
+	background: var(--control-bg);
+	font-size: 11px;
+}
+
+.sai-approval-lines {
+	width: 100%;
+	margin-bottom: 8px;
+	font-size: var(--text-sm);
+}
+
+.sai-approval-lines td {
+	padding: 3px 0;
+	vertical-align: top;
+}
+
+.sai-approval-lines tfoot td {
+	border-top: 1px solid var(--border-color);
+	padding-top: 5px;
+}
+
+.sai-approval-total {
+	font-weight: 600;
+}
+
+.sai-num {
+	text-align: right;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+/* The pre-discount rate, shown only when a rule actually moved the price. */
+.sai-was {
+	margin-right: 4px;
+	color: var(--text-muted);
+	text-decoration: line-through;
+}
+
+.sai-muted {
+	color: var(--text-muted);
+}
+
+.sai-approval-lines .sai-muted {
+	margin-left: 4px;
+}
+
+.sai-approval-warning {
+	margin-bottom: 8px;
+	padding: 6px 8px;
+	border-radius: var(--border-radius);
+	background: var(--bg-yellow);
+	color: var(--text-on-yellow, var(--text-color));
+	font-size: var(--text-sm);
+}
+
+.sai-approval-details {
+	margin-bottom: 8px;
+	font-size: var(--text-sm);
+}
+
+.sai-approval-details summary {
+	cursor: pointer;
+	color: var(--text-muted);
+}
+
+.sai-approval-actions {
+	display: flex;
+	gap: 6px;
+}
+
+.sai-approval-other {
+	display: flex;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+/* -- composer ----------------------------------------------------------------- */
+
+.sai-composer {
+	display: flex;
+	gap: 6px;
+	align-items: flex-end;
+	padding: var(--padding-sm) var(--padding-md);
+	border-top: 1px solid var(--border-color);
+}
+
+.sai-textarea,
+.sai-input {
+	flex: 1;
+	padding: 6px 10px;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	background: var(--control-bg);
+	color: var(--text-color);
+	font-family: inherit;
+	font-size: var(--text-sm);
+	resize: none;
+}
+
+.sai-textarea:focus,
+.sai-input:focus {
+	outline: none;
+	border-color: var(--primary);
+}
+
+.sai-btn {
+	padding: 6px 12px;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	background: var(--control-bg);
+	color: var(--text-color);
+	font-size: var(--text-sm);
+	cursor: pointer;
+}
+
+.sai-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.sai-btn-primary {
+	border-color: var(--primary);
+	background: var(--primary);
+	color: white;
+}
+
+.sai-btn-danger {
+	border-color: var(--red-500);
+	background: transparent;
+	color: var(--red-500);
+}
+
+@media (max-width: 600px) {
+	.sai-root {
+		--sai-width: 100vw;
+	}
+}
