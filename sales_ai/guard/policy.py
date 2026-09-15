@@ -23,11 +23,12 @@ human — the run parks until they answer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import frappe
 from frappe import _
+from frappe.utils import flt, fmt_money
 
 from sales_ai import budget
 from sales_ai.llm.agent import Question, Refusal
@@ -37,6 +38,7 @@ from sales_ai.llm.types import ToolCall
 ALLOW = "Allow"
 REQUIRE_APPROVAL = "Require Approval"
 DENY = "Deny"
+THRESHOLD = "Require Approval Above Amount"
 
 SAME_AS_MODE = "Same as Mode"
 
@@ -48,6 +50,9 @@ class Rule:
 	mode: str
 	message: str = ""
 	name: str | None = None
+	# Why a threshold rule landed where it did, in words, so the person being asked knows
+	# whether they are the right person to ask. Empty for every other kind of rule.
+	note: str = ""
 
 
 def gate(tool: Tool, call: ToolCall) -> Question | Refusal | None:
@@ -59,39 +64,57 @@ def gate(tool: Tool, call: ToolCall) -> Question | Refusal | None:
 			message=_("This run has changed as many records as it is allowed to. Stop here.")
 		)
 
-	rule = decide(tool)
+	# Worked out once and used twice: to decide whether this is small enough to act on
+	# alone, and to show the human the figure if it is not. One computation means the
+	# number a threshold was judged against is the number on the card, always.
+	facts = _preview(tool, call.arguments)
+	rule = decide(tool, facts)
 
 	if rule.mode == ALLOW:
 		return None
 	if rule.mode == DENY:
 		return Refusal(message=rule.message or _("This action is not allowed."))
-	return question(tool, call, rule)
+	return question(tool, call, rule, facts)
 
 
-def decide(tool: Tool) -> Rule:
-	"""Find the rule that governs this tool for the current user."""
+def decide(tool: Tool, facts: dict[str, Any] | None = None) -> Rule:
+	"""Find the rule that governs this tool, for this user, for this particular call.
+
+	`facts` is what the call would come to — see `_preview`. It is optional because a
+	caller may be asking the general question "what governs this tool", but a rule that
+	depends on the specifics and is given none falls back to asking a human.
+	"""
 	unattended = bool(frappe.flags.get("sales_ai_unattended"))
 
 	for row in _policies(tool.name):
 		if row.role and row.role not in frappe.get_roles():
 			continue
+		if row.company and row.company != (facts or {}).get("company"):
+			# Including when the company is simply unknown: a rule that was written about
+			# one company must not decide a call we cannot place.
+			continue
+
 		mode = row.mode
 		if unattended and row.autonomous_override and row.autonomous_override != SAME_AS_MODE:
 			mode = row.autonomous_override
+		if mode == THRESHOLD:
+			return _against_threshold(row, facts)
 		return Rule(mode=mode, message=row.message or "", name=row.name)
 
 	# Nothing matched. Reads are ordinary; anything that changes a record is not.
 	return Rule(mode=REQUIRE_APPROVAL if tool.meta.get("writes") else ALLOW)
 
 
-def question(tool: Tool, call: ToolCall, rule: Rule) -> Question:
+def question(tool: Tool, call: ToolCall, rule: Rule, facts: dict[str, Any] | None = None) -> Question:
 	prompt = rule.message or _("Let the assistant {0}?").format(_describe(tool, call.arguments))
+	if rule.note:
+		prompt = f"{prompt} {rule.note}"
 	return Question(
 		tool_call_id=call.id,
 		tool_name=tool.name,
 		arguments=call.arguments,
 		prompt=prompt,
-		preview=_preview(tool, call.arguments),
+		preview=facts if facts is not None else _preview(tool, call.arguments),
 	)
 
 
@@ -114,15 +137,75 @@ def _write_scope() -> dict[str, str] | None:
 def _policies(tool: str) -> list[Any]:
 	"""Enabled rules for one tool, most specific first.
 
-	A rule naming a role beats a general one at the same priority, so an exception for
-	Sales Managers does not have to out-rank the rule it is an exception to.
+	A rule naming a role or a company beats a general one at the same priority, so an
+	exception for Sales Managers does not have to out-rank the rule it is an exception to.
+	Unset narrowing sorts last under `desc`, which is what puts the general rule behind
+	the specific ones.
 	"""
 	return frappe.get_all(
 		"Sales AI Action Policy",
 		filters={"tool": tool, "enabled": 1},
-		fields=["name", "mode", "message", "role", "autonomous_override"],
-		order_by="priority desc, role desc",
+		fields=[
+			"name",
+			"mode",
+			"message",
+			"role",
+			"company",
+			"threshold",
+			"currency",
+			"autonomous_override",
+		],
+		order_by="priority desc, company desc, role desc",
 	)
+
+
+def _against_threshold(row: Any, facts: dict[str, Any] | None) -> Rule:
+	"""Small enough to act on alone, or big enough to be worth a person's attention.
+
+	This is the one rule that can hand the agent permission to write unsupervised, so it
+	only does so when it is certain: the value has to be known, and it has to be in the
+	currency the limit was written in. Anything else — no facts, a preview that failed, a
+	total that is missing, a different currency — asks a human. Converting currencies here
+	would mean an exchange rate deciding whether something needed approval.
+	"""
+	ask = Rule(mode=REQUIRE_APPROVAL, message=row.message or "", name=row.name)
+
+	amount, currency = _value_of(facts)
+	if amount is None:
+		return replace(ask, note=_("Its value could not be worked out, so it is being checked."))
+	if currency != row.currency:
+		return replace(
+			ask,
+			note=_("It is in {0}, and the {1} limit cannot be applied to it.").format(
+				currency or _("an unknown currency"), row.currency
+			),
+		)
+
+	limit = flt(row.threshold)
+	if flt(amount) <= limit:
+		return Rule(mode=ALLOW, name=row.name)
+	return replace(
+		ask,
+		note=_("At {0} it is over the {1} that may go through unchecked.").format(
+			fmt_money(amount, currency=currency), fmt_money(limit, currency=row.currency)
+		),
+	)
+
+
+def _value_of(facts: dict[str, Any] | None) -> tuple[float | None, str | None]:
+	"""What this call is worth, read from the same totals the approval card shows.
+
+	`rounded_total` first, for the same reason the card leads with it: it is what would
+	actually be charged. A preview that failed reports an error and no totals, which
+	correctly yields no value rather than a zero that would slip under every limit.
+	"""
+	if not facts:
+		return None, None
+	totals = facts.get("totals") or {}
+	for key in ("rounded_total", "grand_total", "total"):
+		if totals.get(key) is not None:
+			return flt(totals[key]), facts.get("currency")
+	return None, facts.get("currency")
 
 
 def _preview(tool: Tool, arguments: dict[str, Any]) -> dict[str, Any] | None:

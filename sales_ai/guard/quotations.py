@@ -167,6 +167,7 @@ def summarise(doc: Any) -> dict[str, Any]:
 	return {
 		"name": doc.name,
 		"customer": doc.party_name if doc.doctype == "Quotation" else doc.customer,
+		"company": doc.company,
 		"status": doc.status,
 		"currency": doc.currency,
 		"lines": [

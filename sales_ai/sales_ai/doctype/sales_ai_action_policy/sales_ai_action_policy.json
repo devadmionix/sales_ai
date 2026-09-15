@@ -12,7 +12,12 @@
   "autonomous_override",
   "column_break_scope",
   "role",
+  "company",
   "priority",
+  "section_break_threshold",
+  "threshold",
+  "column_break_threshold",
+  "currency",
   "section_break_message",
   "message"
  ],
@@ -40,7 +45,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Mode",
-   "options": "Require Approval\nAllow\nDeny",
+   "options": "Require Approval\nAllow\nDeny\nRequire Approval Above Amount",
    "reqd": 1
   },
   {
@@ -64,11 +69,46 @@
    "options": "Role"
   },
   {
+   "description": "Apply only to actions for this company. Leave empty to apply to every company.",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company"
+  },
+  {
    "default": "0",
-   "description": "Highest priority wins. A rule with a role beats a rule without one at the same priority.",
+   "description": "Highest priority wins. A more specific rule beats a general one at the same priority.",
    "fieldname": "priority",
    "fieldtype": "Int",
    "label": "Priority"
+  },
+  {
+   "depends_on": "eval:doc.mode=='Require Approval Above Amount'",
+   "fieldname": "section_break_threshold",
+   "fieldtype": "Section Break",
+   "label": "Amount Threshold"
+  },
+  {
+   "depends_on": "eval:doc.mode=='Require Approval Above Amount'",
+   "description": "At or below this, the agent acts on its own. Above it, a human is asked. An action whose value cannot be worked out always asks, whatever this says.",
+   "fieldname": "threshold",
+   "fieldtype": "Currency",
+   "label": "Ask Above",
+   "options": "currency"
+  },
+  {
+   "fieldname": "column_break_threshold",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.mode=='Require Approval Above Amount'",
+   "description": "The currency the threshold is in. An action in a different currency is not converted — it is sent for approval instead.",
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "reqd": 0
   },
   {
    "fieldname": "section_break_message",
