@@ -1,0 +1,103 @@
+{
+ "actions": [],
+ "creation": "2026-09-15 00:00:00",
+ "description": "One executed step, kept so a finished run can be read back and explained.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "step_key",
+  "step_type",
+  "status",
+  "iteration",
+  "duration_ms",
+  "started_at",
+  "note",
+  "inputs",
+  "output"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "step_key",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Step",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "step_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Type",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Done\nSkipped\nRefused\nFailed",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "description": "Which pass through the loop this was, when the step sits inside one.",
+   "fieldname": "iteration",
+   "fieldtype": "Int",
+   "label": "Iteration",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "duration_ms",
+   "fieldtype": "Int",
+   "label": "ms",
+   "read_only": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Started At",
+   "read_only": 1
+  },
+  {
+   "columns": 4,
+   "description": "The branch taken, the policy decision, or why the step did nothing.",
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Note",
+   "read_only": 1
+  },
+  {
+   "fieldname": "inputs",
+   "fieldtype": "Code",
+   "label": "Inputs",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "output",
+   "fieldtype": "Code",
+   "label": "Output",
+   "options": "JSON",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Playbook Run Step",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

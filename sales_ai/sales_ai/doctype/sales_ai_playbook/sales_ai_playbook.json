@@ -1,0 +1,129 @@
+{
+ "actions": [],
+ "autoname": "format:SAI-PBK-{#####}",
+ "creation": "2026-09-15 00:00:00",
+ "description": "A fixed recipe the agent follows: the steps are decided in advance by a person, not chosen by the model.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "enabled",
+  "column_break_head",
+  "agent_profile",
+  "max_steps",
+  "section_break_about",
+  "description",
+  "section_break_steps",
+  "steps",
+  "section_break_graph",
+  "graph"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "0",
+   "description": "Off by default. A playbook that has never been dry-run should not run by itself.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Supplies the model that AI steps use. Tool steps use the registry directly, not this profile's tool list.",
+   "fieldname": "agent_profile",
+   "fieldtype": "Link",
+   "label": "Agent Profile",
+   "options": "Sales AI Agent Profile",
+   "reqd": 1
+  },
+  {
+   "default": "200",
+   "description": "The most steps one run may execute. This is what stops a loop over a large result set from running forever.",
+   "fieldname": "max_steps",
+   "fieldtype": "Int",
+   "label": "Max Steps",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_break_about",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_steps",
+   "fieldtype": "Section Break",
+   "label": "Steps"
+  },
+  {
+   "fieldname": "steps",
+   "fieldtype": "Table",
+   "label": "Steps",
+   "options": "Sales AI Playbook Step",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_graph",
+   "fieldtype": "Section Break",
+   "label": "Shape"
+  },
+  {
+   "fieldname": "graph",
+   "fieldtype": "HTML",
+   "label": "Graph"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "group": "Runs",
+   "link_doctype": "Sales AI Playbook Run",
+   "link_fieldname": "playbook"
+  },
+  {
+   "group": "Triggers",
+   "link_doctype": "Sales AI Trigger",
+   "link_fieldname": "playbook"
+  }
+ ],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Playbook",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

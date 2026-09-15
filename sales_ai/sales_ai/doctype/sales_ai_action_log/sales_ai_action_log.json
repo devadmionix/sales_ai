@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "autoname": "format:SAI-ACT-{YYYY}-{#####}",
+ "creation": "2026-09-15 00:00:00",
+ "description": "One row for every change the agent actually made. Written by the system; nobody creates these by hand.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "action",
+  "reference_doctype",
+  "reference_name",
+  "column_break_head",
+  "tool",
+  "user",
+  "run",
+  "playbook_run",
+  "section_break_changes",
+  "changes"
+ ],
+ "fields": [
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Action",
+   "options": "Create\nUpdate\nNote\nFollow Up\nDraft\nSubmit",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Record Type",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Record",
+   "options": "reference_doctype",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tool",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Tool",
+   "read_only": 1
+  },
+  {
+   "description": "The person the agent was acting for. Every change was made with their permissions.",
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "On Behalf Of",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "description": "Open the run to see whether this was approved by a human or allowed by a policy.",
+   "fieldname": "run",
+   "fieldtype": "Link",
+   "label": "Run",
+   "options": "Sales AI Run",
+   "read_only": 1
+  },
+  {
+   "description": "Set instead of Run when the change came from a step in a playbook rather than from the model.",
+   "fieldname": "playbook_run",
+   "fieldtype": "Link",
+   "label": "Playbook Run",
+   "options": "Sales AI Playbook Run",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_changes",
+   "fieldtype": "Section Break",
+   "label": "Changes"
+  },
+  {
+   "description": "Fields set on create, or before and after values on update.",
+   "fieldname": "changes",
+   "fieldtype": "JSON",
+   "label": "Changes",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Action Log",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "if_owner": 1,
+   "read": 1,
+   "role": "All"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "tool",
+ "track_changes": 0
+}

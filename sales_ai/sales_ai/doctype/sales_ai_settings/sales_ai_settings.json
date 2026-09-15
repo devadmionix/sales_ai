@@ -1,0 +1,93 @@
+{
+ "actions": [],
+ "creation": "2026-09-15 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "default_agent_profile",
+  "section_break_autonomy",
+  "triggers_enabled",
+  "section_break_limits",
+  "max_writes_per_run",
+  "column_break_limits",
+  "daily_token_budget"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "description": "Master switch. With this off, no agent run can start anywhere in the site.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enable Sales AI"
+  },
+  {
+   "description": "Used when a request does not name an agent.",
+   "fieldname": "default_agent_profile",
+   "fieldtype": "Link",
+   "label": "Default Agent Profile",
+   "options": "Sales AI Agent Profile"
+  },
+  {
+   "fieldname": "section_break_autonomy",
+   "fieldtype": "Section Break",
+   "label": "Autonomy"
+  },
+  {
+   "default": "0",
+   "description": "Lets Sales AI Triggers start runs on their own. A second switch on purpose: turning Sales AI on should not also let it act unattended.",
+   "fieldname": "triggers_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Triggers"
+  },
+  {
+   "fieldname": "section_break_limits",
+   "fieldtype": "Section Break",
+   "label": "Limits"
+  },
+  {
+   "description": "Most records one run may change. Once reached, further changes are refused and the agent is told, so it finishes and explains itself instead of stopping mid-task. Empty means no cap.",
+   "fieldname": "max_writes_per_run",
+   "fieldtype": "Int",
+   "label": "Max Writes Per Run",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_limits",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Most tokens one user may spend in a day, across every run they start or that runs as them. Empty means no budget.",
+   "fieldname": "daily_token_budget",
+   "fieldtype": "Int",
+   "label": "Daily Token Budget Per User",
+   "non_negative": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

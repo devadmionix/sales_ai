@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -25,8 +25,11 @@ app_license = "mit"
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/sales_ai/css/sales_ai.css"
-# app_include_js = "/assets/sales_ai/js/sales_ai.js"
+app_include_css = "sales_ai.bundle.css"
+# The graph renderer is a plain script rather than part of the bundle: the bundle is the
+# chat panel, which only mounts when Sales AI is enabled, and the playbook forms have to
+# draw themselves either way.
+app_include_js = ["sales_ai.bundle.js", "/assets/sales_ai/js/graph.js"]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/sales_ai/css/sales_ai.css"
@@ -47,6 +50,9 @@ app_license = "mit"
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
+
+# Tells the desk whether to mount the assistant panel.
+extend_bootinfo = "sales_ai.boot.extend_bootinfo"
 
 # Svg Icons
 # ------------------
@@ -144,34 +150,30 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+# Sales AI Triggers watch every doctype. `dispatch` returns on a single cache read unless
+# a trigger has actually been configured for that doctype and event.
+doc_events = {
+	"*": {
+		"after_insert": "sales_ai.triggers.dispatch",
+		"on_update": "sales_ai.triggers.dispatch",
+		"on_submit": "sales_ai.triggers.dispatch",
+		"on_cancel": "sales_ai.triggers.dispatch",
+	}
+}
 
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"sales_ai.tasks.all"
-# 	],
-# 	"daily": [
-# 		"sales_ai.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"sales_ai.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"sales_ai.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"sales_ai.tasks.monthly"
-# 	],
-# }
+# Five minutes is the finest a scheduled trigger can resolve, and is also how long a
+# missed tick can delay one — or delay a waiting playbook waking up.
+scheduler_events = {
+	"cron": {
+		"*/5 * * * *": [
+			"sales_ai.triggers.run_scheduled",
+			"sales_ai.playbook.resume_due",
+		],
+	}
+}
 
 # Testing
 # -------

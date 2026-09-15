@@ -1,0 +1,112 @@
+{
+ "actions": [],
+ "autoname": "format:SAI-POL-{#####}",
+ "creation": "2026-09-15 00:00:00",
+ "description": "Decides whether the agent may run a tool on its own, must ask a human first, or may not run it at all. With no matching row, every write asks first.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "tool",
+  "mode",
+  "autonomous_override",
+  "column_break_scope",
+  "role",
+  "priority",
+  "section_break_message",
+  "message"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "description": "The registered tool this rule applies to.",
+   "fieldname": "tool",
+   "fieldtype": "Autocomplete",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Tool",
+   "reqd": 1
+  },
+  {
+   "default": "Require Approval",
+   "description": "Allow runs the tool without asking. Require Approval pauses the run until a human answers. Deny refuses the call and tells the agent why.",
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Mode",
+   "options": "Require Approval\nAllow\nDeny",
+   "reqd": 1
+  },
+  {
+   "description": "What happens in a run started by a trigger or a schedule, where nobody is watching. Same as Mode means Require Approval parks the run and raises a to-do for the person it runs as.",
+   "fieldname": "autonomous_override",
+   "fieldtype": "Select",
+   "label": "When Unattended",
+   "options": "Same as Mode\nRequire Approval\nAllow\nDeny"
+  },
+  {
+   "fieldname": "column_break_scope",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Apply only to users holding this role. Leave empty to apply to everyone.",
+   "fieldname": "role",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Role",
+   "options": "Role"
+  },
+  {
+   "default": "0",
+   "description": "Highest priority wins. A rule with a role beats a rule without one at the same priority.",
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "label": "Priority"
+  },
+  {
+   "fieldname": "section_break_message",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Shown to the person approving, or given to the agent as the reason it was refused.",
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "label": "Message"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Action Policy",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "priority",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "tool",
+ "track_changes": 1
+}
