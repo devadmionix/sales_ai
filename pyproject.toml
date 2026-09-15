@@ -9,6 +9,8 @@ readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     # "frappe~=16.0.0" # Installed and managed by bench.
+    "litellm>=1.83.0",  # provider abstraction, so swapping LLM vendors stays a config change
+    "pydantic>=2.10",   # tool argument validation and JSON Schema generation
 ]
 
 [build-system]
