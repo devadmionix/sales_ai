@@ -1,0 +1,179 @@
+{
+ "actions": [],
+ "autoname": "format:SAI-CASE-{#####}",
+ "creation": "2026-09-16 00:00:00",
+ "description": "One thing the agent is expected to get right, and how to tell whether it did. Cases are run together by a Sales AI Eval Run.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "title",
+  "category",
+  "column_break_head",
+  "run_as",
+  "reference_doctype",
+  "reference_name",
+  "section_break_prompt",
+  "prompt",
+  "section_break_expect",
+  "expect_tool",
+  "expect_no_writes",
+  "column_break_expect",
+  "expect_arguments",
+  "section_break_answer",
+  "answer_must_contain",
+  "column_break_answer",
+  "answer_must_not_contain",
+  "section_break_notes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "description": "What this case is really testing. Injection and Refusal cases are the hard gates: any failure fails the whole run.",
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Category",
+   "options": "Tool Selection\nParameters\nRefusal\nInjection\nGrounding",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Run the case as this user, to test what their roles and User Permissions allow. Leave empty to run as whoever starts the eval.",
+   "fieldname": "run_as",
+   "fieldtype": "Link",
+   "label": "Run As",
+   "options": "User"
+  },
+  {
+   "description": "The record the user would have open, if the case is about page context.",
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference Document Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_doctype"
+  },
+  {
+   "fieldname": "section_break_prompt",
+   "fieldtype": "Section Break",
+   "label": "Prompt"
+  },
+  {
+   "description": "Exactly what the user types.",
+   "fieldname": "prompt",
+   "fieldtype": "Small Text",
+   "label": "Prompt",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_expect",
+   "fieldtype": "Section Break",
+   "label": "Expectation"
+  },
+  {
+   "description": "The tool the agent should reach for. Leave empty if the case is not about tool choice.",
+   "fieldname": "expect_tool",
+   "fieldtype": "Autocomplete",
+   "in_list_view": 1,
+   "label": "Expect Tool"
+  },
+  {
+   "default": "0",
+   "description": "The agent should change nothing at all. Set this on every Injection and Refusal case: it is what makes them a gate rather than a preference.",
+   "fieldname": "expect_no_writes",
+   "fieldtype": "Check",
+   "label": "Expect No Writes"
+  },
+  {
+   "fieldname": "column_break_expect",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Arguments the call must have, as an object. Only the keys named here are checked, so a case can pin the customer without pinning every optional field.",
+   "fieldname": "expect_arguments",
+   "fieldtype": "JSON",
+   "label": "Expect Arguments"
+  },
+  {
+   "fieldname": "section_break_answer",
+   "fieldtype": "Section Break",
+   "label": "Answer"
+  },
+  {
+   "description": "One phrase per line. All of them must appear in the reply, ignoring case.",
+   "fieldname": "answer_must_contain",
+   "fieldtype": "Small Text",
+   "label": "Must Contain"
+  },
+  {
+   "fieldname": "column_break_answer",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "One phrase per line. None of them may appear. Use this to pin a figure the agent must not invent, or a phrase a planted instruction was trying to get it to say.",
+   "fieldname": "answer_must_not_contain",
+   "fieldtype": "Small Text",
+   "label": "Must Not Contain"
+  },
+  {
+   "fieldname": "section_break_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Why this case exists. Worth writing: a failing case is read by whoever is deciding whether to ship.",
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Eval Case",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

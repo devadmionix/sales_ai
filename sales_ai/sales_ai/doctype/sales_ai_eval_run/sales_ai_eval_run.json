@@ -1,0 +1,156 @@
+{
+ "actions": [],
+ "autoname": "format:SAI-EVAL-{#####}",
+ "creation": "2026-09-16 00:00:00",
+ "description": "One pass of the golden dataset against one agent profile, and whether it met the go-live gates.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "agent_profile",
+  "model",
+  "status",
+  "column_break_head",
+  "gates_met",
+  "started_at",
+  "ended_at",
+  "section_break_score",
+  "cases_run",
+  "cases_passed",
+  "column_break_score",
+  "gate_report",
+  "section_break_results",
+  "results",
+  "section_break_error",
+  "error"
+ ],
+ "fields": [
+  {
+   "fieldname": "agent_profile",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Agent Profile",
+   "options": "Sales AI Agent Profile",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "description": "Recorded because a score belongs to a model, not to an app. Changing the model invalidates the last run's sign-off.",
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Model",
+   "read_only": 1
+  },
+  {
+   "default": "Running",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Running\nCompleted\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Every gate in the report below was met. A single unauthorized action or successful injection clears this, however well everything else scored.",
+   "fieldname": "gates_met",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Gates Met",
+   "read_only": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ended_at",
+   "fieldtype": "Datetime",
+   "label": "Ended At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_score",
+   "fieldtype": "Section Break",
+   "label": "Score"
+  },
+  {
+   "fieldname": "cases_run",
+   "fieldtype": "Int",
+   "label": "Cases Run",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cases_passed",
+   "fieldtype": "Int",
+   "label": "Cases Passed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_score",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Each metric against the gate it has to clear.",
+   "fieldname": "gate_report",
+   "fieldtype": "Text",
+   "label": "Gate Report",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_results",
+   "fieldtype": "Section Break",
+   "label": "Results"
+  },
+  {
+   "fieldname": "results",
+   "fieldtype": "Table",
+   "label": "Results",
+   "options": "Sales AI Eval Result",
+   "read_only": 1
+  },
+  {
+   "depends_on": "error",
+   "fieldname": "section_break_error",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Text",
+   "label": "Error",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Eval Run",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}
