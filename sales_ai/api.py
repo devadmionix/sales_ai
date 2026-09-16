@@ -30,6 +30,29 @@ from sales_ai.playbook import engine
 from sales_ai.tools import read
 
 
+def guard_entry() -> None:
+	"""Decide whether this login gets the assistant at all, before anything else runs.
+
+	Every endpoint here is `@frappe.whitelist()`, which asks only that somebody is logged
+	in — and a customer with a portal account is logged in. Without this they reach the
+	sales assistant: its system prompt, its tool list and the site's model budget. The
+	permission layer underneath would still refuse to show them another customer's records,
+	so this is not the only thing standing between them and the data; it is the thing that
+	stops them being handed a salesperson's assistant in the first place.
+
+	It is checked here rather than deeper down because a refusal that arrives after a model
+	has been called has already cost money, and because one gate on the way in is something
+	a reviewer can actually verify. Portal users are refused rather than given a smaller
+	assistant: a customer-facing assistant is a different product with a different prompt
+	and a different tool list, and it has not been built.
+	"""
+	if frappe.session.user == "Guest":
+		raise frappe.PermissionError(_("Please log in to use the assistant."))
+
+	if frappe.db.get_value("User", frappe.session.user, "user_type") != "System User":
+		raise frappe.PermissionError(_("The assistant is not available for this account."))
+
+
 @frappe.whitelist(methods=["POST"])
 def chat(
 	prompt: str,
@@ -40,6 +63,7 @@ def chat(
 	think: bool | str = False,
 ) -> Response:
 	"""Send a message. Streams the reply."""
+	guard_entry()
 	if not (prompt or "").strip():
 		frappe.throw(_("Message cannot be empty."))
 
@@ -81,6 +105,40 @@ def _offered(agent: str | None) -> str | None:
 	frappe.throw(_("Agent {0} is not one you can choose.").format(agent), frappe.PermissionError)
 
 
+@frappe.whitelist(methods=["POST"])
+def portal_chat(prompt: str, session: str | None = None) -> Response:
+	"""Send a message as a signed-in customer. Streams the reply.
+
+	Deliberately not `chat` with a flag. Three things differ and every one of them is a
+	thing a customer must not be able to change:
+
+	- the agent is read from Settings, never from the request, so a customer cannot name
+	  the sales team's agent and inherit its tools and its prompt
+	- there is no `reference_doctype`/`reference_name`, so the conversation cannot be
+	  pointed at a record
+	- there is no `think`, which is a way to spend several times the tokens per message on
+	  a surface where the person asking is not paying the bill
+
+	`portal_enabled` is its own switch. Turning the assistant on for staff should not also
+	turn it on for everyone who can register on the website.
+	"""
+	if frappe.session.user == "Guest":
+		raise frappe.PermissionError(_("Please log in to use the assistant."))
+	if not frappe.db.get_single_value("Sales AI Settings", "portal_enabled"):
+		raise frappe.PermissionError(_("The assistant is not available for this account."))
+
+	profile = frappe.db.get_single_value("Sales AI Settings", "portal_agent_profile")
+	if not profile:
+		# Refused rather than falling back to the default agent, which is the staff one.
+		# A missing setting must never widen what a customer can reach.
+		raise frappe.PermissionError(_("The assistant is not available for this account."))
+
+	if not (prompt or "").strip():
+		frappe.throw(_("Message cannot be empty."))
+
+	return _sse(orchestrator.start_stream(prompt, session=session, agent_profile=profile))
+
+
 @frappe.whitelist()
 def agents() -> dict[str, Any]:
 	"""What the panel needs before its first message: who it may run as, and what it may
@@ -90,6 +148,7 @@ def agents() -> dict[str, Any]:
 	Profiles at all — only what a System Manager has explicitly ticked as offerable is
 	listed, and only its name and model, never its prompt or its tools.
 	"""
+	guard_entry()
 	default = frappe.db.get_single_value("Sales AI Settings", "default_agent_profile")
 	offered = frappe.get_all(
 		"Sales AI Agent Profile",
@@ -120,6 +179,7 @@ def agents() -> dict[str, Any]:
 @frappe.whitelist(methods=["POST"])
 def answer(run: str, answers: str | dict[str, str]) -> Response:
 	"""Answer a paused run's approval question. Streams the continuation."""
+	guard_entry()
 	if isinstance(answers, str):
 		answers = json.loads(answers)
 	if not isinstance(answers, dict):
@@ -146,6 +206,7 @@ def run_playbook(
 	playbook: str, reference_doctype: str | None = None, reference_name: str | None = None
 ) -> dict[str, str]:
 	"""Start a playbook by hand. It runs as the person who asked for it."""
+	guard_entry()
 	if not frappe.db.get_single_value("Sales AI Settings", "enabled"):
 		frappe.throw(_("Sales AI is turned off in Sales AI Settings."), title=_("Disabled"))
 
@@ -170,6 +231,7 @@ def dry_run_playbook(
 	playbook: str, reference_doctype: str | None = None, reference_name: str | None = None
 ) -> list[dict[str, Any]]:
 	"""Resolve every step without running anything. Nothing is written and no tokens are spent."""
+	guard_entry()
 	frappe.get_doc("Sales AI Playbook", playbook).check_permission("write")
 	if reference_doctype and reference_name:
 		frappe.has_permission(reference_doctype, doc=reference_name, throw=True)
@@ -182,6 +244,7 @@ def dry_run_playbook(
 @frappe.whitelist(methods=["POST"])
 def answer_playbook(playbook_run: str, reply: str) -> dict[str, str]:
 	"""Answer a playbook run that is parked on an approval."""
+	guard_entry()
 	engine.answer(playbook_run, reply)
 	return {"status": "queued"}
 
@@ -194,6 +257,7 @@ def playbook_graph(playbook: str | None = None, playbook_run: str | None = None)
 	picture is of what will actually run. For a run, the trace comes with it, which is what
 	lets the drawing highlight the path that was taken.
 	"""
+	guard_entry()
 	trace: list[dict[str, Any]] = []
 	cursor = None
 
@@ -228,6 +292,7 @@ def playbook_graph(playbook: str | None = None, playbook_run: str | None = None)
 @frappe.whitelist()
 def history(session: str) -> dict[str, Any]:
 	"""The visible conversation. Tool chatter is summarised, not replayed in full."""
+	guard_entry()
 	doc = frappe.get_doc("Sales AI Session", session)
 	doc.check_permission("read")
 
@@ -284,6 +349,7 @@ def _pending_question(session: str) -> dict[str, Any] | None:
 @frappe.whitelist()
 def sessions(limit: int = 20) -> list[dict[str, Any]]:
 	"""Recent conversations belonging to the current user."""
+	guard_entry()
 	return frappe.get_list(
 		"Sales AI Session",
 		filters={"user": frappe.session.user, "status": "Active"},
