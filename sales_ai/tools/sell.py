@@ -35,6 +35,7 @@ class QuoteLine(BaseModel):
 
 @tool(
 	writes=False,
+	risk="none",
 	description="""Check how much of an item is in stock.
 
 Use this before promising a delivery. Returns, per warehouse, what is physically on hand,
@@ -60,6 +61,7 @@ def check_availability(
 
 @tool(
 	writes=False,
+	risk="none",
 	description=f"""Work out what ERPNext would charge for a set of items.
 
 Use this whenever a price is asked for. Do not read a rate off an item record and multiply
@@ -126,6 +128,8 @@ def _quotation_preview(arguments: dict[str, Any]) -> dict[str, Any]:
 
 @tool(
 	writes=True,
+	# A draft is internal and still editable, and no customer has seen it.
+	risk="medium",
 	action="draft a quotation for {customer}",
 	preview=_pricing_preview,
 	description=f"""Save a quotation as a draft in ERPNext.
@@ -160,6 +164,8 @@ def draft_quotation(
 
 @tool(
 	writes=True,
+	# Submitting fixes the company's official price and cannot be edited away afterwards.
+	risk="high",
 	action="submit quotation {name}",
 	preview=_quotation_preview,
 	description="""Submit a draft quotation.
@@ -178,6 +184,8 @@ def submit_quotation(
 
 @tool(
 	writes=True,
+	# Commits the company to filling the order: it reserves stock and starts the money.
+	risk="high",
 	action="turn quotation {name} into a draft sales order",
 	preview=_quotation_preview,
 	description="""Create a draft sales order from a submitted quotation.

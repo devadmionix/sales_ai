@@ -26,6 +26,18 @@ const payable = computed(
 );
 const tax = computed(() => totals.value.total_taxes_and_charges);
 
+// How consequential the tool is. Only the bands worth pausing over are labelled — a badge
+// on every card is a badge on none of them, and most approvals are routine.
+const risk = computed(() => props.question.risk);
+const riskLabel = computed(
+	() =>
+		({
+			medium: __("Medium risk"),
+			high: __("High risk"),
+			critical: __("Critical"),
+		})[risk.value] || "",
+);
+
 function money(value) {
 	if (value === undefined || value === null) return "";
 	return format_currency(value, currency.value);
@@ -41,7 +53,10 @@ function redirect() {
 
 <template>
 	<div class="sai-approval">
-		<div class="sai-approval-prompt">{{ question.prompt }}</div>
+		<div class="sai-approval-prompt">
+			{{ question.prompt }}
+			<span v-if="riskLabel" class="sai-risk" :class="`sai-risk-${risk}`">{{ riskLabel }}</span>
+		</div>
 
 		<div v-if="preview?.error" class="sai-approval-warning">{{ preview.error }}</div>
 

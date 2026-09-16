@@ -43,6 +43,9 @@ _UPDATABLE = "\n".join(
 
 @tool(
 	writes=True,
+	# Bounded by an allow-list of doctypes and fields, but within it the model chooses both,
+	# so the blast radius is wider than any single-purpose tool's.
+	risk="high",
 	action="create a new {doctype}",
 	description=f"""Create a new sales record.
 
@@ -65,6 +68,8 @@ def create_record(
 
 @tool(
 	writes=True,
+	# Overwrites what is already there, so unlike the others it can destroy information.
+	risk="high",
 	action="change {doctype} {name}",
 	description=f"""Change fields on an existing sales record.
 
@@ -87,6 +92,8 @@ def update_record(
 
 @tool(
 	writes=True,
+	# Additive and internal: it replaces nothing and leaves the record itself untouched.
+	risk="low",
 	action="add a note to {doctype} {name}",
 	description="""Add a note to a record's timeline.
 
@@ -103,6 +110,8 @@ def add_note(
 
 @tool(
 	writes=True,
+	# A reminder in the user's own to-do list. It cannot reach anyone else.
+	risk="low",
 	action="schedule a follow-up on {doctype} {name}",
 	description="""Schedule a follow-up reminder about a record.
 

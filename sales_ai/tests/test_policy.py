@@ -25,11 +25,13 @@ COMPANY = "Widgets Ltd"
 OTHER_COMPANY = "Someone Else Ltd"
 
 
-def _tool(name: str, *, writes: bool = True, preview: Any = None) -> Tool:
+def _tool(name: str, *, writes: bool = True, preview: Any = None, risk: str | None = None) -> Tool:
 	"""A stand-in for a registered tool. The policy layer only ever reads `name` and `meta`."""
 	meta: dict[str, Any] = {"writes": writes}
 	if preview is not None:
 		meta["preview"] = preview
+	if risk is not None:
+		meta["risk"] = risk
 	return Tool(name=name, description="", parameters={}, func=lambda **kw: None, meta=meta)
 
 
@@ -205,6 +207,47 @@ class TestGate(PolicyTestCase):
 		verdict = policy.gate(_tool("t_quote"), ToolCall(id="c1", name="t_quote", arguments={}))
 		self.assertIsInstance(verdict, Refusal)
 		self.assertIn("Not from this account.", verdict.message)
+
+
+class TestRisk(PolicyTestCase):
+	"""Risk is declared in code, so the tests guard the declarations themselves."""
+
+	def test_every_registered_tool_declares_a_known_risk(self) -> None:
+		"""Catches a new tool added without one, and a typo in an existing one."""
+		from sales_ai import tools
+
+		for name in tools.names():
+			with self.subTest(tool=name):
+				self.assertIn(tools.get(name).meta.get("risk"), policy.RISKS)
+
+	def test_a_write_tool_that_forgot_is_treated_as_dangerous(self) -> None:
+		self.assertEqual(policy.risk_of(_tool("t_undeclared")), "high")
+
+	def test_a_read_tool_that_forgot_is_not(self) -> None:
+		self.assertEqual(policy.risk_of(_tool("t_undeclared", writes=False)), "none")
+
+	def test_a_nonsense_risk_is_not_taken_at_face_value(self) -> None:
+		bogus = _tool("t_bogus")
+		bogus.meta["risk"] = "harmless"
+		self.assertEqual(policy.risk_of(bogus), "high")
+
+	def test_no_read_tool_claims_to_be_risky(self) -> None:
+		"""A read that looks dangerous on the card trains people to click through warnings."""
+		from sales_ai import tools
+
+		for name in tools.names():
+			handle = tools.get(name)
+			if not handle.meta.get("writes"):
+				with self.subTest(tool=name):
+					self.assertEqual(handle.meta.get("risk"), "none")
+
+	def test_the_approval_card_is_told_the_risk(self) -> None:
+		self._policy("t_quote", mode=policy.REQUIRE_APPROVAL)
+
+		asked = policy.gate(
+			_tool("t_quote", risk="high"), ToolCall(id="c1", name="t_quote", arguments={})
+		)
+		self.assertEqual(asked.risk, "high")
 
 
 class TestUnattended(PolicyTestCase):

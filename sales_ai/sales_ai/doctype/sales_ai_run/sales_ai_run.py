@@ -67,6 +67,7 @@ def _question_payload(result: RunResult) -> dict:
 		"options": question.options,
 		"allow_other": question.allow_other,
 		"preview": question.preview,
+		"risk": question.risk,
 	}
 
 

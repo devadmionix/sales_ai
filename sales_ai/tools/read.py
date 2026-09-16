@@ -36,6 +36,7 @@ _CATALOGUE = "\n".join(f"- {describe(doctype)}" for doctype in SalesDocType.__ar
 
 @tool(
 	writes=False,
+	risk="none",
 	description=f"""Search sales records the current user is allowed to see.
 
 Returns a small set of summary fields per record. Use get_record for the full detail of
@@ -66,6 +67,7 @@ def search_records(
 
 @tool(
 	writes=False,
+	risk="none",
 	description="""Read one sales record in full, including its line items where it has them.
 
 Use this after search_records has given you the record's name (its ID), or when the user

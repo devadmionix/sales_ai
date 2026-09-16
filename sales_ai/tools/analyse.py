@@ -43,6 +43,7 @@ _CATALOGUE = "\n".join(f"- {describe(doctype)}" for doctype in MeasurableDocType
 
 @tool(
 	writes=False,
+	risk="none",
 	description=f"""Count, total or average sales records, optionally broken down.
 
 Use this instead of search_records whenever the answer is a number rather than a list of
@@ -110,6 +111,7 @@ _REPORTS = "\n".join(f"- {describe_report(name)}" for name in report_names())
 
 @tool(
 	writes=False,
+	risk="none",
 	description=f"""Run one of ERPNext's own sales reports.
 
 Prefer this over measure_records when the question matches a report, because the report is

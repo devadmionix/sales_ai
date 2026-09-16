@@ -307,6 +307,25 @@
 	margin-left: 4px;
 }
 
+.sai-risk {
+	display: inline-block;
+	margin-left: 6px;
+	padding: 0 6px;
+	border-radius: 10px;
+	background: var(--bg-yellow);
+	color: var(--text-on-yellow, var(--text-color));
+	font-size: var(--text-xs);
+	font-weight: 500;
+	white-space: nowrap;
+	vertical-align: middle;
+}
+
+.sai-risk-high,
+.sai-risk-critical {
+	background: var(--bg-red);
+	color: var(--text-on-red, var(--text-color));
+}
+
 .sai-approval-warning {
 	margin-bottom: 8px;
 	padding: 6px 8px;

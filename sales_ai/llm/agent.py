@@ -51,6 +51,9 @@ class Question:
 	# arguments alone can hide the thing a person most needs to see — "200 bolts" does not
 	# tell you the money. Filled in by the policy layer; the loop only carries it.
 	preview: dict[str, Any] | None = None
+	# How consequential the tool is, so the card can say whether this is a note being added
+	# or a price being committed to. Declared by the tool; the loop only carries it.
+	risk: str = "none"
 
 
 @dataclass

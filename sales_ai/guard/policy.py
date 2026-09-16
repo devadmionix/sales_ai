@@ -42,6 +42,11 @@ THRESHOLD = "Require Approval Above Amount"
 
 SAME_AS_MODE = "Same as Mode"
 
+# How much damage a tool can do, declared by the tool as ``risk=`` and ordered least to
+# worst. It is a property of the code, not of configuration, so an admin cannot lower it
+# to make an approval go away — the most they can do is decide what to do about it.
+RISKS = ("none", "low", "medium", "high", "critical")
+
 
 @dataclass(frozen=True)
 class Rule:
@@ -115,7 +120,20 @@ def question(tool: Tool, call: ToolCall, rule: Rule, facts: dict[str, Any] | Non
 		arguments=call.arguments,
 		prompt=prompt,
 		preview=facts if facts is not None else _preview(tool, call.arguments),
+		risk=risk_of(tool),
 	)
+
+
+def risk_of(tool: Tool) -> str:
+	"""How much damage a tool can do, defaulting to the worst reading of silence.
+
+	A tool that writes and never said is treated as `high`, so forgetting to declare a risk
+	cannot be the thing that makes a dangerous action look routine.
+	"""
+	declared = tool.meta.get("risk")
+	if declared in RISKS:
+		return declared
+	return "high" if tool.meta.get("writes") else "none"
 
 
 # -- internals -----------------------------------------------------------------------
