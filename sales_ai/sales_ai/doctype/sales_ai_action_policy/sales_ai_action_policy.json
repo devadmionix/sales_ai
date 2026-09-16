@@ -12,7 +12,7 @@
   "autonomous_override",
   "column_break_scope",
   "role",
-  "company",
+  "for_company",
   "priority",
   "section_break_threshold",
   "threshold",
@@ -70,7 +70,7 @@
   },
   {
    "description": "Apply only to actions for this company. Leave empty to apply to every company.",
-   "fieldname": "company",
+   "fieldname": "for_company",
    "fieldtype": "Link",
    "in_standard_filter": 1,
    "label": "Company",

@@ -89,7 +89,7 @@ def decide(tool: Tool, facts: dict[str, Any] | None = None) -> Rule:
 	for row in _policies(tool.name):
 		if row.role and row.role not in frappe.get_roles():
 			continue
-		if row.company and row.company != (facts or {}).get("company"):
+		if row.for_company and row.for_company != (facts or {}).get("company"):
 			# Including when the company is simply unknown: a rule that was written about
 			# one company must not decide a call we cannot place.
 			continue
@@ -141,6 +141,11 @@ def _policies(tool: str) -> list[Any]:
 	exception for Sales Managers does not have to out-rank the rule it is an exception to.
 	Unset narrowing sorts last under `desc`, which is what puts the general rule behind
 	the specific ones.
+
+	The company field is `for_company`, not `company`, and must stay that way. Frappe fills
+	any field *named* `company` from the session's default company, so a rule an admin left
+	blank meaning "every company" would silently become one company's rule — and a Deny
+	written that way would stop matching everyone else's calls.
 	"""
 	return frappe.get_all(
 		"Sales AI Action Policy",
@@ -150,12 +155,12 @@ def _policies(tool: str) -> list[Any]:
 			"mode",
 			"message",
 			"role",
-			"company",
+			"for_company",
 			"threshold",
 			"currency",
 			"autonomous_override",
 		],
-		order_by="priority desc, company desc, role desc",
+		order_by="priority desc, for_company desc, role desc",
 	)
 
 
