@@ -130,7 +130,33 @@ def create_follow_up(
 	return writes.create_follow_up(doctype, name, date, description, tool="create_follow_up")
 
 
+@tool(
+	writes=True,
+	# Not low, though it changes no field on the lead. `add_note` and `create_follow_up`
+	# touch only the caller's own timeline and to-do list; this one hands a customer
+	# relationship to a third person and tells them so. Low is the band that runs without
+	# asking when autonomy is "Act On Low Risk", and reassigning somebody's work is not a
+	# thing to do on a model's own initiative.
+	risk="medium",
+	action="assign lead {name} to {to_user}",
+	description="""Give a lead to a colleague.
+
+They are added alongside whoever already has it — this never takes the lead away from
+anyone. To move work off someone, a person has to do that in the desk.
+
+The colleague must already be able to see the lead. If they cannot, this is refused
+rather than granting them access.""",
+)
+def assign_lead(
+	name: Annotated[str, "The lead's ID, e.g. 'CRM-LEAD-2026-00001'."],
+	to_user: Annotated[str, "The colleague's login email."],
+	note: Annotated[str | None, "Why, in plain text. Optional."] = None,
+) -> dict[str, Any]:
+	return writes.assign_lead(name, to_user, note=note, tool="assign_lead")
+
+
 register(create_record)
 register(update_record)
 register(add_note)
 register(create_follow_up)
+register(assign_lead)

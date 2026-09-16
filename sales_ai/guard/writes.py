@@ -23,9 +23,10 @@ from typing import Any
 
 import frappe
 from frappe import _
+from frappe.desk.form import assign_to
 from frappe.utils import escape_html
 
-from sales_ai.guard import GuardError, read_document
+from sales_ai.guard import NO_SUCH_RECORD, GuardError, deny, read_document
 from sales_ai.guard.specs import SPECS, WRITE_SPECS, WriteSpec
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_action
 
@@ -41,7 +42,9 @@ def create_record(doctype: str, values: dict[str, Any], *, tool: str) -> dict[st
 		raise GuardError(f"A new {spec.label} needs {', '.join(missing)}.")
 
 	_not_a_duplicate(doctype, spec, clean)
-	frappe.has_permission(doctype, "create", throw=True)
+	if not frappe.has_permission(doctype, "create"):
+		# No record is named, so nothing is given away by being specific about this one.
+		raise deny("Create", doctype, None, f"You cannot create a {spec.label}.")
 
 	doc = frappe.new_doc(doctype)
 	doc.update(clean)
@@ -62,12 +65,14 @@ def create_record(doctype: str, values: dict[str, Any], *, tool: str) -> dict[st
 
 def update_record(doctype: str, name: str, values: dict[str, Any], *, tool: str) -> dict[str, Any]:
 	spec = _spec(doctype)
+	# Access first, arguments second. Reversed, a user who may not touch the record is
+	# still told which fields it has and which of them are writable, and the refusal they
+	# eventually get is about their arguments rather than about their not being allowed.
+	doc = _may_change(doctype, name, "write", "Update")
+
 	clean = _checked(spec, values, creating=False)
 	if not clean:
 		raise GuardError("No fields to change were given.")
-
-	doc = frappe.get_doc(doctype, name)
-	doc.check_permission("write")
 
 	changes = {
 		field: {"from": doc.get(field), "to": value}
@@ -113,8 +118,7 @@ def add_note(doctype: str, name: str, note: str, *, tool: str) -> dict[str, Any]
 	if len(text) > MAX_NOTE:
 		raise GuardError(f"The note is too long; keep it under {MAX_NOTE} characters.")
 
-	doc = frappe.get_doc(doctype, name)
-	doc.check_permission("write")
+	doc = _may_change(doctype, name, "write", "Note")
 
 	# The timeline renders comments as HTML, and this text was composed by a model that
 	# has been reading customer-supplied data. It goes in as text, not markup.
@@ -146,8 +150,7 @@ def create_follow_up(
 	if not text:
 		raise GuardError("A follow-up needs a description.")
 
-	doc = frappe.get_doc(doctype, name)
-	doc.check_permission("read")
+	doc = _may_change(doctype, name, "read", "Follow Up")
 
 	todo = frappe.get_doc(
 		{
@@ -171,6 +174,54 @@ def create_follow_up(
 	return {"follow_up": todo.name, "on": f"{doctype} {doc.name}", "date": todo.date}
 
 
+def assign_lead(name: str, to_user: str, *, note: str | None = None, tool: str) -> dict[str, Any]:
+	"""Put a lead on somebody's list, alongside whoever is already on it.
+
+	Adding rather than replacing, and deliberately. "Give this lead to Priya" usually means
+	Priya should pick it up, not that Raj should find out later that it was taken off him.
+	Taking work away from somebody is a different sentence, and the model does not get it.
+	"""
+	doc = _may_change("Lead", name, "write", "Assign")
+	assignee = _assignable(to_user, "Lead", name)
+
+	if frappe.db.exists(
+		"ToDo",
+		{
+			"reference_type": "Lead",
+			"reference_name": doc.name,
+			"allocated_to": assignee,
+			"status": "Open",
+		},
+	):
+		return {"unchanged": "Lead", "name": doc.name, "note": f"{assignee} already has this lead."}
+
+	assign_to.add(
+		{
+			"doctype": "Lead",
+			"name": doc.name,
+			"assign_to": [assignee],
+			# The text lands on a ToDo that renders as HTML, and it was written by a model
+			# that has been reading whatever the lead's own notes say.
+			"description": escape_html(note.strip()[:MAX_NOTE]) if note and note.strip() else None,
+		}
+	)
+
+	record_action(
+		action="Assign",
+		tool=tool,
+		reference_doctype="Lead",
+		reference_name=doc.name,
+		changes={"assigned_to": assignee, "note": note},
+	)
+
+	return {
+		"assigned": "Lead",
+		"name": doc.name,
+		"to": assignee,
+		"note": "Added to their list. Anyone it was already assigned to still has it.",
+	}
+
+
 def writable_doctypes() -> list[str]:
 	return sorted(WRITE_SPECS)
 
@@ -188,6 +239,61 @@ def describe_writable(doctype: str, creating: bool) -> str:
 
 
 # -- internals -----------------------------------------------------------------------
+
+
+def _may_change(doctype: str, name: str, ptype: str, action: str):
+	"""Fetch a record the user is allowed to act on, or refuse without saying which.
+
+	There are two refusals here and the difference between them is the point. A record the
+	user cannot even read is answered exactly as a record that does not exist, because
+	telling those apart is how somebody finds out what exists. A record they can read but
+	not change is told so plainly — they can already see it, so there is nothing left to
+	give away, and the specific answer is the one that stops them asking again.
+
+	`get_doc` and `check_permission` still run afterwards. This decides what the user is
+	told; ERPNext decides what actually happens.
+	"""
+	if not frappe.db.exists(doctype, name) or not frappe.has_permission(doctype, "read", doc=name):
+		raise deny(action, doctype, name, NO_SUCH_RECORD.format(doctype=doctype, name=name))
+
+	if not frappe.has_permission(doctype, ptype, doc=name):
+		raise deny(action, doctype, name, f"You cannot change the {doctype} {name!r}.")
+
+	doc = frappe.get_doc(doctype, name)
+	doc.check_permission(ptype)
+	return doc
+
+
+def _assignable(to_user: str, doctype: str, name: str) -> str:
+	"""Somebody who can be given this record, or a refusal.
+
+	The second check is the one that matters. `assign_to.add` shares a document with an
+	assignee who cannot see it (`frappe/desk/form/assign_to.py`, "if assignee does not have
+	permissions, share or inform"), which would make assigning a lead a way to grant read
+	access to it — through a tool nobody would think to audit for that. The agent does not
+	get to widen anyone's access as a side effect of tidying a queue, so it refuses and says
+	what needs doing instead.
+
+	The first check runs three ways into one answer for the usual reason: a refusal that
+	distinguishes "no such account" from "disabled" from "customer login" is a way to go
+	fishing for staff email addresses.
+	"""
+	details = frappe.db.get_value("User", to_user, ["enabled", "user_type"], as_dict=True)
+	if not details or not details.enabled or details.user_type != "System User":
+		raise deny(
+			"Assign", doctype, name, f"There is nobody called {to_user!r} you can give work to."
+		)
+
+	if not frappe.has_permission(doctype, "read", doc=name, user=to_user):
+		raise deny(
+			"Assign",
+			doctype,
+			name,
+			f"{to_user!r} cannot see this {doctype}, and assigning it would give them "
+			f"access they do not have. Someone will need to grant that first.",
+		)
+
+	return to_user
 
 
 def _spec(doctype: str) -> WriteSpec:
