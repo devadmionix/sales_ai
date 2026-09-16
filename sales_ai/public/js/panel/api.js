@@ -27,6 +27,11 @@ export async function sessions(limit) {
 	return call("sales_ai.api.sessions", { limit });
 }
 
+// The agents this user may pick between, and which one a run uses if the panel names none.
+export async function agents() {
+	return call("sales_ai.api.agents", {});
+}
+
 async function call(method, args) {
 	const response = await frappe.call({ method, args });
 	return response.message;
@@ -52,7 +57,10 @@ async function stream(url, payload, on, signal) {
 	});
 
 	// An auth or validation failure never reaches the generator, so it arrives as JSON.
-	if (!response.ok || !(response.headers.get("Content-Type") || "").includes("text/event-stream")) {
+	if (
+		!response.ok ||
+		!(response.headers.get("Content-Type") || "").includes("text/event-stream")
+	) {
 		on("error", { message: await errorMessage(response) });
 		return;
 	}
@@ -75,7 +83,8 @@ async function stream(url, payload, on, signal) {
 				// A frame we cannot read is a fault, not a thing to skip quietly. Dropping
 				// it loses whatever it said — which may have been the answer.
 				if (parsed) on(parsed.event, parsed.data);
-				else if (frame.trim()) on("error", { message: __("The assistant sent something unreadable.") });
+				else if (frame.trim())
+					on("error", { message: __("The assistant sent something unreadable.") });
 			}
 		}
 	} finally {

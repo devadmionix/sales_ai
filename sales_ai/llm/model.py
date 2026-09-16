@@ -76,6 +76,18 @@ class Model:
 
 		return cls(doc.model_id, api_key=api_key, base_url=base_url, params=params)
 
+	def think(self) -> None:
+		"""Ask for a longer chain of reasoning before the answer.
+
+		Quietly ignored by a model that has no such mode. `reasoning_effort` sent to one
+		that cannot use it comes back 400, and 400 is deliberately outside
+		`_TRANSIENT_STATUS`, so an optional extra would fail the whole run instead of
+		degrading. A value set in the model's own params still wins — that one was chosen
+		by hand.
+		"""
+		if _supports_reasoning(self.model_id):
+			self.params.setdefault("reasoning_effort", "medium")
+
 	def chat(
 		self,
 		messages: list[dict[str, Any]],
@@ -238,6 +250,27 @@ class Model:
 			finish_reason=finish_reason,
 			model=model,
 		)
+
+
+def supports_reasoning(name: str) -> bool:
+	"""Whether a configured `Sales AI Model` can be asked to think harder.
+
+	Asked of litellm rather than ticked on the record, so a newly added model is right
+	without anyone remembering to configure it. False whenever the answer is not a clear
+	yes: offering the option for a model that would reject it is worse than not offering it.
+	"""
+	model_id = frappe.get_cached_value("Sales AI Model", name, "model_id")
+	return bool(model_id) and _supports_reasoning(model_id)
+
+
+def _supports_reasoning(model_id: str) -> bool:
+	import litellm
+
+	try:
+		return bool(litellm.supports_reasoning(model=model_id))
+	except Exception:
+		# litellm only knows the models in its own cost map; an unknown one is not an error.
+		return False
 
 
 def validate_params_field(value: Any, label: str) -> None:

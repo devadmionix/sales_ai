@@ -19,8 +19,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 44px;
-	height: 44px;
+	width: 48px;
+	height: 48px;
 	padding: 0;
 	border: none;
 	border-radius: var(--border-radius-full);
@@ -28,10 +28,16 @@
 	color: white;
 	box-shadow: var(--shadow-md);
 	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .sai-launcher:hover {
+	transform: translateY(-2px);
 	box-shadow: var(--shadow-lg);
+}
+
+.sai-launcher:active {
+	transform: translateY(0);
 }
 
 .sai-panel {
@@ -51,6 +57,27 @@
 	color: var(--text-color);
 }
 
+/* The panel arrives from the edge it lives on. `v-show` keeps it mounted, so this only
+   ever animates the two states it actually has. */
+.sai-slide-enter-active,
+.sai-slide-leave-active {
+	transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+.sai-slide-enter-from,
+.sai-slide-leave-to {
+	transform: translateX(16px);
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sai-slide-enter-active,
+	.sai-slide-leave-active,
+	.sai-launcher {
+		transition: none;
+	}
+}
+
 /* -- header ------------------------------------------------------------------ */
 
 .sai-head {
@@ -62,7 +89,23 @@
 }
 
 .sai-title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 	font-weight: 600;
+}
+
+/* Idle is quiet; working pulses. Cheaper to read than a spinner in the header. */
+.sai-status {
+	width: 7px;
+	height: 7px;
+	border-radius: var(--border-radius-full);
+	background: var(--green-500, #22c55e);
+}
+
+.sai-status-busy {
+	background: var(--primary);
+	animation: sai-pulse 1s ease-in-out infinite;
 }
 
 .sai-head-actions {
@@ -89,11 +132,31 @@
 }
 
 .sai-context {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 	padding: 6px var(--padding-md);
 	border-bottom: 1px solid var(--border-color);
 	background: var(--subtle-accent);
 	color: var(--text-muted);
 	font-size: var(--text-sm);
+}
+
+.sai-context-off {
+	margin-left: auto;
+	padding: 0 4px;
+	border: none;
+	border-radius: var(--border-radius-sm);
+	background: transparent;
+	color: var(--text-muted);
+	font-size: 14px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.sai-context-off:hover {
+	background: var(--control-bg);
+	color: var(--text-color);
 }
 
 /* -- recent conversations ----------------------------------------------------- */
@@ -142,18 +205,108 @@
 	text-align: center;
 }
 
-.sai-msg {
+.sai-empty-title {
 	margin-bottom: var(--padding-md);
+}
+
+/* Openers. A blank panel that offers nothing is a panel nobody knows how to start. */
+.sai-opener {
+	display: block;
+	width: 100%;
+	margin-bottom: 6px;
+	padding: 7px 12px;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	background: var(--fg-color);
+	color: var(--text-color);
+	font-size: var(--text-sm);
+	text-align: left;
+	cursor: pointer;
+	transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.sai-opener:hover {
+	border-color: var(--primary);
+	background: var(--control-bg);
+}
+
+/* -- messages ---------------------------------------------------------------- */
+
+.sai-msg {
 	display: flex;
-	flex-direction: column;
+	gap: 8px;
+	margin-bottom: var(--padding-md);
 }
 
 .sai-msg-user {
-	align-items: flex-end;
+	flex-direction: row-reverse;
+}
+
+.sai-msg-body {
+	min-width: 0;
+	max-width: calc(100% - 36px);
+}
+
+.sai-avatar {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--border-radius-full);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1;
+}
+
+.sai-avatar-bot {
+	background: var(--primary);
+	color: white;
+}
+
+.sai-avatar-user {
+	background: var(--control-bg);
+	color: var(--text-muted);
+}
+
+.sai-meta {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	margin-bottom: 3px;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.sai-msg-user .sai-meta {
+	flex-direction: row-reverse;
+}
+
+.sai-who {
+	font-weight: 600;
+	color: var(--text-color);
+}
+
+/* Held back until the message is hovered, so a long transcript is not a wall of buttons. */
+.sai-copy {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-muted);
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.12s ease;
+}
+
+.sai-msg:hover .sai-copy,
+.sai-copy:focus-visible {
+	opacity: 1;
 }
 
 .sai-bubble {
-	max-width: 92%;
 	padding: 8px 12px;
 	border-radius: var(--border-radius-md);
 	background: var(--control-bg);
@@ -164,6 +317,11 @@
 .sai-msg-user .sai-bubble {
 	background: var(--primary);
 	color: white;
+	border-top-right-radius: 4px;
+}
+
+.sai-msg-assistant .sai-bubble {
+	border-top-left-radius: 4px;
 }
 
 .sai-markdown {
@@ -185,6 +343,20 @@
 	padding: 4px 6px;
 	border: 1px solid var(--border-color);
 	text-align: left;
+}
+
+/* Record IDs and amounts come back inside backticks often enough to be worth setting. */
+.sai-markdown code {
+	padding: 1px 4px;
+	border-radius: var(--border-radius);
+	background: var(--fg-color);
+	font-size: 12px;
+}
+
+.sai-markdown ul,
+.sai-markdown ol {
+	margin-bottom: 8px;
+	padding-left: 18px;
 }
 
 /* -- tool activity ------------------------------------------------------------ */
@@ -230,7 +402,67 @@
 }
 
 .sai-thinking {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding-left: 36px;
 	color: var(--text-muted);
+}
+
+.sai-dots {
+	display: inline-flex;
+	gap: 3px;
+}
+
+.sai-dots i {
+	width: 5px;
+	height: 5px;
+	border-radius: var(--border-radius-full);
+	background: var(--text-muted);
+	animation: sai-bounce 1.2s ease-in-out infinite;
+}
+
+.sai-dots i:nth-child(2) {
+	animation-delay: 0.15s;
+}
+
+.sai-dots i:nth-child(3) {
+	animation-delay: 0.3s;
+}
+
+@keyframes sai-bounce {
+	0%,
+	60%,
+	100% {
+		opacity: 0.3;
+		transform: translateY(0);
+	}
+	30% {
+		opacity: 1;
+		transform: translateY(-3px);
+	}
+}
+
+/* Only shown once the user has scrolled away from the bottom, which is the only time
+   the transcript stops following the reply. */
+.sai-jump {
+	position: absolute;
+	right: 16px;
+	bottom: 76px;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-full);
+	background: var(--fg-color);
+	color: var(--text-color);
+	box-shadow: var(--shadow-sm);
+	line-height: 1;
+	cursor: pointer;
+}
+
+.sai-jump:hover {
+	background: var(--control-bg);
 }
 
 .sai-error {
@@ -371,16 +603,157 @@
 
 .sai-composer {
 	display: flex;
+	flex-direction: column;
 	gap: 6px;
-	align-items: flex-end;
 	padding: var(--padding-sm) var(--padding-md);
 	border-top: 1px solid var(--border-color);
+}
+
+/* Attach, think, agent, dictate and send, on one line under the text. Side by side with
+   the textarea they would squeeze it to nothing in a 380px panel. */
+.sai-tools {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+}
+
+/* Pushes dictate and send to the right, so the destructive-ish half of the row is never
+   where the eye lands first. */
+.sai-tools-gap {
+	flex: 1;
+}
+
+.sai-tool {
+	display: inline-flex;
+	flex-shrink: 0;
+	gap: 4px;
+	align-items: center;
+	justify-content: center;
+	min-width: 30px;
+	height: 30px;
+	padding: 0 7px;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-full);
+	background: transparent;
+	color: var(--text-muted);
+	font-size: 15px;
+	line-height: 1;
+	cursor: pointer;
+	transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.sai-tool-label {
+	font-size: 11px;
+}
+
+.sai-tool:hover:not(:disabled) {
+	border-color: var(--primary);
+	color: var(--text-color);
+}
+
+.sai-tool:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+/* Think, switched on. Filled rather than merely outlined, because this one costs money
+   every time it is left on by accident. */
+.sai-tool-on {
+	border-color: var(--primary);
+	background: var(--primary);
+	color: white;
+}
+
+.sai-tool-on:hover:not(:disabled) {
+	color: white;
+}
+
+/* The microphone is open. Pulsing, because a panel that is quietly listening to the room
+   is not something to indicate with a colour alone. */
+.sai-tool-live {
+	border-color: var(--red-500, #e24c4c);
+	color: var(--red-500, #e24c4c);
+	animation: sai-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes sai-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.45;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sai-tool-live {
+		animation: none;
+	}
+}
+
+/* -- agent picker ------------------------------------------------------------- */
+
+.sai-agent {
+	position: relative;
+}
+
+.sai-caret {
+	font-size: 9px;
+}
+
+/* Opens upwards: the picker sits at the bottom of the panel, so a menu below it would
+   fall off the screen. */
+.sai-agent-menu {
+	position: absolute;
+	bottom: calc(100% + 4px);
+	left: 0;
+	z-index: 1;
+	min-width: 200px;
+	max-height: 240px;
+	overflow-y: auto;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	background: var(--fg-color);
+	box-shadow: var(--shadow-lg);
+}
+
+.sai-agent-option {
+	display: block;
+	width: 100%;
+	padding: 6px 10px;
+	border: none;
+	background: transparent;
+	color: var(--text-color);
+	text-align: left;
+	cursor: pointer;
+}
+
+.sai-agent-option:hover {
+	background: var(--control-bg);
+}
+
+.sai-agent-on .sai-agent-name {
+	font-weight: 600;
+}
+
+.sai-agent-name {
+	display: block;
+	font-size: var(--text-sm);
+}
+
+/* Which model is behind the agent, because that is the part people mean when they ask
+   what it is running as. */
+.sai-agent-model {
+	display: block;
+	color: var(--text-muted);
+	font-size: 11px;
 }
 
 .sai-textarea,
 .sai-input {
 	flex: 1;
-	padding: 6px 10px;
+	padding: 8px 12px;
 	border: 1px solid var(--border-color);
 	border-radius: var(--border-radius-md);
 	background: var(--control-bg);
@@ -388,12 +761,57 @@
 	font-family: inherit;
 	font-size: var(--text-sm);
 	resize: none;
+	overflow-y: auto;
+	transition: border-color 0.12s ease;
+}
+
+.sai-textarea {
+	/* Matched to one line of text; `resize()` grows it from here. */
+	min-height: 36px;
+	max-height: 150px;
+	line-height: 1.4;
 }
 
 .sai-textarea:focus,
 .sai-input:focus {
 	outline: none;
 	border-color: var(--primary);
+}
+
+/* Send and stop are the same control in two states, so they keep the same footprint. */
+.sai-send {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: none;
+	border-radius: var(--border-radius-full);
+	background: var(--primary);
+	color: white;
+	font-size: 16px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.sai-send:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.sai-send-stop {
+	background: var(--control-bg);
+	color: var(--text-color);
+	border: 1px solid var(--border-color);
+}
+
+.sai-square {
+	width: 9px;
+	height: 9px;
+	border-radius: 2px;
+	background: currentColor;
 }
 
 .sai-btn {

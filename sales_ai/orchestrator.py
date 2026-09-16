@@ -49,6 +49,7 @@ def start_stream(
 	reference_name: str | None = None,
 	trigger: str | None = None,
 	background: bool = False,
+	think: bool = False,
 ) -> Generator[Event | RunStarted, None, dict[str, Any]]:
 	"""Run one user turn, streaming as it goes, and persist the outcome."""
 	profile = _profile(agent_profile)
@@ -59,7 +60,7 @@ def start_stream(
 		else _new_session(prompt, profile.name, reference_doctype, reference_name)
 	)
 
-	agent = build_agent(profile)
+	agent = build_agent(profile, think=think)
 	run = new_run(
 		session_doc.name,
 		prompt,
@@ -133,11 +134,18 @@ def _pump(
 		yield event
 
 
-def build_agent(profile) -> Agent:
-	"""Assemble the engine from a profile. The tool list is a whitelist, never a filter."""
+def build_agent(profile, *, think: bool = False) -> Agent:
+	"""Assemble the engine from a profile. The tool list is a whitelist, never a filter.
+
+	`think` is asked for per turn rather than stored on the profile, because it is the
+	question that is hard, not the agent.
+	"""
 	selected = tools.select([row.tool for row in profile.tools if row.enabled])
+	model = Model.from_name(profile.model)
+	if think:
+		model.think()
 	return Agent(
-		model=Model.from_name(profile.model),
+		model=model,
 		tools=selected,
 		system_prompt=prompt.build(profile, selected),
 		max_iterations=profile.max_iterations or 12,

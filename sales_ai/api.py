@@ -18,13 +18,16 @@ from typing import Any
 
 import frappe
 from frappe import _
+from frappe.utils import sbool
 from werkzeug.wrappers import Response
 
 from sales_ai import background, orchestrator
+from sales_ai.llm import model as llm_model
 from sales_ai.llm.agent import ToolFinished
 from sales_ai.llm.types import Notice, ToolCallBegin
 from sales_ai.orchestrator import RunStarted
 from sales_ai.playbook import engine
+from sales_ai.tools import read
 
 
 @frappe.whitelist(methods=["POST"])
@@ -34,6 +37,7 @@ def chat(
 	agent: str | None = None,
 	reference_doctype: str | None = None,
 	reference_name: str | None = None,
+	think: bool | str = False,
 ) -> Response:
 	"""Send a message. Streams the reply."""
 	if not (prompt or "").strip():
@@ -43,11 +47,74 @@ def chat(
 		orchestrator.start_stream(
 			prompt,
 			session=session,
-			agent_profile=agent,
+			agent_profile=_offered(agent),
 			reference_doctype=reference_doctype,
 			reference_name=reference_name,
+			# Costs more and takes longer, so it is asked for per message rather than left
+			# on. Ignored by a model with no reasoning mode.
+			think=bool(sbool(think)),
 		)
 	)
+
+
+def _offered(agent: str | None) -> str | None:
+	"""Check that an agent named by the browser is one the browser was allowed to name.
+
+	`orchestrator._profile` takes the name on trust, which is right for every other caller —
+	resume, triggers, playbooks and background runs all pass a name the system itself wrote
+	down. This is the one path where the name arrives from outside, and an agent is a tool
+	whitelist and a system prompt, so accepting any name lets anyone who can open the panel
+	run as any agent that exists, including one assembled for unattended work.
+
+	Reading the DocType is enough on its own: that is a System Manager's privilege, and
+	somebody who can edit the agents is not escalating anything by choosing one.
+	"""
+	if not agent:
+		return None
+	if frappe.db.get_value("Sales AI Agent Profile", agent, "selectable"):
+		return agent
+	# Naming the default is not a choice at all — it is what the run would have used.
+	if agent == frappe.db.get_single_value("Sales AI Settings", "default_agent_profile"):
+		return agent
+	if frappe.has_permission("Sales AI Agent Profile", "read", doc=agent):
+		return agent
+	frappe.throw(_("Agent {0} is not one you can choose.").format(agent), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def agents() -> dict[str, Any]:
+	"""What the panel needs before its first message: who it may run as, and what it may
+	be pointed at.
+
+	Runs without a DocType permission check because ordinary sales users cannot read Agent
+	Profiles at all — only what a System Manager has explicitly ticked as offerable is
+	listed, and only its name and model, never its prompt or its tools.
+	"""
+	default = frappe.db.get_single_value("Sales AI Settings", "default_agent_profile")
+	offered = frappe.get_all(
+		"Sales AI Agent Profile",
+		filters={"enabled": 1, "selectable": 1},
+		fields=["name", "title", "model"],
+		order_by="title asc",
+		ignore_permissions=True,
+	)
+	# The default is what a run uses when the panel names nothing, so it belongs in the list
+	# even when nobody remembered to tick it.
+	if default and not any(row.name == default for row in offered):
+		fallback = frappe.db.get_value(
+			"Sales AI Agent Profile", default, ["name", "title", "model", "enabled"], as_dict=True
+		)
+		if fallback and fallback.pop("enabled"):
+			offered.insert(0, fallback)
+
+	# So the panel can hide "Think" for a model that has no reasoning mode, rather than
+	# offering a switch that turns a working answer into a 400.
+	for row in offered:
+		row["reasoning"] = llm_model.supports_reasoning(row["model"])
+
+	# Read straight off the tools' own enum rather than listed again here, so a record the
+	# agent cannot open is never offered as something to ask about.
+	return {"default": default, "agents": offered, "subjects": sorted(read.SalesDocType.__args__)}
 
 
 @frappe.whitelist(methods=["POST"])

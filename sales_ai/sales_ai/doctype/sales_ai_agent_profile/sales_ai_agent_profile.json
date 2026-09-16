@@ -8,6 +8,7 @@
  "field_order": [
   "title",
   "enabled",
+  "selectable",
   "column_break_head",
   "model",
   "max_iterations",
@@ -32,6 +33,13 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Enabled"
+  },
+  {
+   "default": "0",
+   "description": "Let people pick this agent in the chat panel. Off by default, and deliberately: an agent is a set of tools and a system prompt, so offering one hands out everything it can do to anyone who can open the panel.",
+   "fieldname": "selectable",
+   "fieldtype": "Check",
+   "label": "Offer In Chat Panel"
   },
   {
    "fieldname": "column_break_head",
