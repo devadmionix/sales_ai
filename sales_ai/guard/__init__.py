@@ -229,6 +229,33 @@ def _may_read(doctype: str, name: str) -> str:
 	return name
 
 
+def may_change(doctype: str, name: str, ptype: str, action: str):
+	"""Fetch a record the user is allowed to act on, or refuse without saying which.
+
+	There are two refusals here and the difference between them is the point. A record the
+	user cannot even read is answered exactly as a record that does not exist, because
+	telling those apart is how somebody finds out what exists. A record they can read but
+	not change is told so plainly — they can already see it, so there is nothing left to
+	give away, and the specific answer is the one that stops them asking again.
+
+	`get_doc` and `check_permission` still run afterwards. This decides what the user is
+	told; ERPNext decides what actually happens.
+
+	Public, and living here rather than beside the tools that use it, because every write
+	path in the app has to answer this question the same way. Two copies would eventually
+	disagree, and the disagreement would be the leak.
+	"""
+	if not frappe.db.exists(doctype, name) or not frappe.has_permission(doctype, "read", doc=name):
+		raise deny(action, doctype, name, NO_SUCH_RECORD.format(doctype=doctype, name=name))
+
+	if not frappe.has_permission(doctype, ptype, doc=name):
+		raise deny(action, doctype, name, f"You cannot change the {doctype} {name!r}.")
+
+	doc = frappe.get_doc(doctype, name)
+	doc.check_permission(ptype)
+	return doc
+
+
 def _plain_text(value: str) -> str:
 	text = " ".join(strip_html_tags(value).split())
 	if len(text) > MAX_TEXT:

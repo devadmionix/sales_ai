@@ -26,7 +26,7 @@ from frappe import _
 from frappe.desk.form import assign_to
 from frappe.utils import escape_html
 
-from sales_ai.guard import NO_SUCH_RECORD, GuardError, deny, read_document
+from sales_ai.guard import GuardError, deny, may_change, read_document
 from sales_ai.guard.specs import SPECS, WRITE_SPECS, WriteSpec
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_action
 
@@ -68,7 +68,7 @@ def update_record(doctype: str, name: str, values: dict[str, Any], *, tool: str)
 	# Access first, arguments second. Reversed, a user who may not touch the record is
 	# still told which fields it has and which of them are writable, and the refusal they
 	# eventually get is about their arguments rather than about their not being allowed.
-	doc = _may_change(doctype, name, "write", "Update")
+	doc = may_change(doctype, name, "write", "Update")
 
 	clean = _checked(spec, values, creating=False)
 	if not clean:
@@ -118,7 +118,7 @@ def add_note(doctype: str, name: str, note: str, *, tool: str) -> dict[str, Any]
 	if len(text) > MAX_NOTE:
 		raise GuardError(f"The note is too long; keep it under {MAX_NOTE} characters.")
 
-	doc = _may_change(doctype, name, "write", "Note")
+	doc = may_change(doctype, name, "write", "Note")
 
 	# The timeline renders comments as HTML, and this text was composed by a model that
 	# has been reading customer-supplied data. It goes in as text, not markup.
@@ -150,7 +150,7 @@ def create_follow_up(
 	if not text:
 		raise GuardError("A follow-up needs a description.")
 
-	doc = _may_change(doctype, name, "read", "Follow Up")
+	doc = may_change(doctype, name, "read", "Follow Up")
 
 	todo = frappe.get_doc(
 		{
@@ -181,7 +181,7 @@ def assign_lead(name: str, to_user: str, *, note: str | None = None, tool: str) 
 	Priya should pick it up, not that Raj should find out later that it was taken off him.
 	Taking work away from somebody is a different sentence, and the model does not get it.
 	"""
-	doc = _may_change("Lead", name, "write", "Assign")
+	doc = may_change("Lead", name, "write", "Assign")
 	assignee = _assignable(to_user, "Lead", name)
 
 	if frappe.db.exists(
@@ -239,29 +239,6 @@ def describe_writable(doctype: str, creating: bool) -> str:
 
 
 # -- internals -----------------------------------------------------------------------
-
-
-def _may_change(doctype: str, name: str, ptype: str, action: str):
-	"""Fetch a record the user is allowed to act on, or refuse without saying which.
-
-	There are two refusals here and the difference between them is the point. A record the
-	user cannot even read is answered exactly as a record that does not exist, because
-	telling those apart is how somebody finds out what exists. A record they can read but
-	not change is told so plainly — they can already see it, so there is nothing left to
-	give away, and the specific answer is the one that stops them asking again.
-
-	`get_doc` and `check_permission` still run afterwards. This decides what the user is
-	told; ERPNext decides what actually happens.
-	"""
-	if not frappe.db.exists(doctype, name) or not frappe.has_permission(doctype, "read", doc=name):
-		raise deny(action, doctype, name, NO_SUCH_RECORD.format(doctype=doctype, name=name))
-
-	if not frappe.has_permission(doctype, ptype, doc=name):
-		raise deny(action, doctype, name, f"You cannot change the {doctype} {name!r}.")
-
-	doc = frappe.get_doc(doctype, name)
-	doc.check_permission(ptype)
-	return doc
 
 
 def _assignable(to_user: str, doctype: str, name: str) -> str:

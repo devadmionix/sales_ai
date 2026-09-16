@@ -193,9 +193,9 @@ def submit_quotation(
 Use this when the customer has accepted the quotation. ERPNext copies the lines and
 totals across, so the order agrees with the quotation rather than being re-priced.
 
-The sales order is left as a DRAFT. It reserves no stock and commits no delivery. A
-person has to submit it in ERPNext — you cannot, and should say so rather than implying
-the order is placed.
+The sales order is left as a DRAFT. It reserves no stock and commits no delivery, so do
+not tell the user the order is placed. Submitting it is submit_document, and only if the
+user asks for it — never chain the two without being told to.
 
 The quotation must be submitted, and must be made out to a Customer rather than a lead.""",
 )

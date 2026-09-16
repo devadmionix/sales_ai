@@ -11,10 +11,11 @@ the same consequence, and a human approving them should be approving the right t
   desk, and deleting it costs nothing.
 - Submitting makes the quote the company's official position on price. It can be cancelled
   but not quietly edited.
-- Converting to a Sales Order is a commitment to deliver. The agent may draft that order,
-  but it is left in draft: **nothing here submits a Sales Order.** Reserving stock and
-  committing a delivery date is a person's decision, taken in the desk with the whole
-  document in front of them.
+- Converting to a Sales Order is a commitment to deliver, and the order this module makes
+  is left in draft. Submitting it is a separate, approved step in `guard.documents` — a
+  different sentence from the user, and a different approval card, because reserving stock
+  and committing a delivery date is not something that should happen as a side effect of
+  "turn that quote into an order".
 
 Every step reuses ERPNext's controllers and mappers, so pricing, taxes, status, naming and
 every `validate` hook run exactly as they do for a human.
@@ -128,7 +129,8 @@ def convert_to_sales_order(name: str, *, delivery_date: str, tool: str) -> dict[
 	for row in order.items:
 		row.delivery_date = order.delivery_date
 
-	# Left in draft on purpose. See this module's docstring.
+	# Left in draft on purpose: submitting is `documents.submit_document`, which the user
+	# has to ask for separately. See this module's docstring.
 	order.insert()
 	order.add_comment(
 		"Info", _("Drafted from {0} by Sales AI for {1}.").format(name, frappe.session.user)
@@ -147,8 +149,8 @@ def convert_to_sales_order(name: str, *, delivery_date: str, tool: str) -> dict[
 		"from_quotation": name,
 		**summarise(order),
 		"note": (
-			"The order is a draft and reserves no stock. A person has to submit it in ERPNext "
-			"before it commits the company to anything."
+			"The order is a draft and reserves no stock. It commits the company to nothing "
+			"until it is submitted, which is a separate step the user has to ask for."
 		),
 	}
 

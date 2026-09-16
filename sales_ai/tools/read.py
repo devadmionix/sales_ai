@@ -26,6 +26,8 @@ SalesDocType = Literal[
 	"Opportunity",
 	"Quotation",
 	"Sales Order",
+	"Sales Invoice",
+	"Delivery Note",
 ]
 
 # Keeps the enum the model sees and the allowlist the guard enforces in step.
