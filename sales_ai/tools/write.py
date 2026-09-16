@@ -118,16 +118,21 @@ def add_note(
 	action="schedule a follow-up on {doctype} {name}",
 	description="""Schedule a follow-up reminder about a record.
 
-The reminder goes into the current user's own to-do list. You cannot assign work to
-anyone else.""",
+The reminder goes into the current user's own to-do list unless a colleague is named, and
+a colleague must already be able to see the record it is about.""",
 )
 def create_follow_up(
 	doctype: Annotated[SalesDocType, "Type of record the follow-up is about."],
 	name: Annotated[str, "The record's ID."],
 	date: Annotated[str, "When to follow up, as YYYY-MM-DD."],
 	description: Annotated[str, "What to do, in plain text."],
+	for_user: Annotated[
+		str | None, "Put it on this colleague's list instead, by login email. Optional."
+	] = None,
 ) -> dict[str, Any]:
-	return writes.create_follow_up(doctype, name, date, description, tool="create_follow_up")
+	return writes.create_follow_up(
+		doctype, name, date, description, for_user=for_user, tool="create_follow_up"
+	)
 
 
 @tool(
@@ -138,25 +143,26 @@ def create_follow_up(
 	# asking when autonomy is "Act On Low Risk", and reassigning somebody's work is not a
 	# thing to do on a model's own initiative.
 	risk="medium",
-	action="assign lead {name} to {to_user}",
-	description="""Give a lead to a colleague.
+	action="assign {doctype} {name} to {to_user}",
+	description="""Give a record to a colleague — a lead, an opportunity, a quotation, anything.
 
-They are added alongside whoever already has it — this never takes the lead away from
+They are added alongside whoever already has it — this never takes the record away from
 anyone. To move work off someone, a person has to do that in the desk.
 
-The colleague must already be able to see the lead. If they cannot, this is refused
+The colleague must already be able to see the record. If they cannot, this is refused
 rather than granting them access.""",
 )
-def assign_lead(
-	name: Annotated[str, "The lead's ID, e.g. 'CRM-LEAD-2026-00001'."],
+def assign_record(
+	doctype: Annotated[SalesDocType, "Type of record to hand over."],
+	name: Annotated[str, "The record's ID, e.g. 'CRM-LEAD-2026-00001'."],
 	to_user: Annotated[str, "The colleague's login email."],
 	note: Annotated[str | None, "Why, in plain text. Optional."] = None,
 ) -> dict[str, Any]:
-	return writes.assign_lead(name, to_user, note=note, tool="assign_lead")
+	return writes.assign_record(doctype, name, to_user, note=note, tool="assign_record")
 
 
 register(create_record)
 register(update_record)
 register(add_note)
 register(create_follow_up)
-register(assign_lead)
+register(assign_record)

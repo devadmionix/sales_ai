@@ -136,12 +136,13 @@ def add_note(doctype: str, name: str, note: str, *, tool: str) -> dict[str, Any]
 
 
 def create_follow_up(
-	doctype: str, name: str, date: str, description: str, *, tool: str
+	doctype: str, name: str, date: str, description: str, *, for_user: str | None = None, tool: str
 ) -> dict[str, Any]:
-	"""Put a dated reminder in the user's own to-do list.
+	"""Put a dated reminder on somebody's to-do list; the caller's own unless told otherwise.
 
-	It is always allocated to the person the agent is working for. Handing work to someone
-	else is a different action with different consequences, and the model does not get it.
+	`for_user` goes through `_assignable`, the same gate as handing a record over, because
+	it is the same leak: a reminder about a lead is visible to whoever holds it, so putting
+	one on the list of somebody who cannot see that lead tells them it exists.
 	"""
 	if doctype not in SPECS:
 		raise GuardError(f"{doctype!r} is not a record the assistant works with.")
@@ -151,11 +152,12 @@ def create_follow_up(
 		raise GuardError("A follow-up needs a description.")
 
 	doc = may_change(doctype, name, "read", "Follow Up")
+	owner = _assignable(for_user, doctype, name) if for_user else frappe.session.user
 
 	todo = frappe.get_doc(
 		{
 			"doctype": "ToDo",
-			"allocated_to": frappe.session.user,
+			"allocated_to": owner,
 			"date": date,
 			"description": escape_html(text[:MAX_NOTE]),
 			"reference_type": doctype,
@@ -174,34 +176,47 @@ def create_follow_up(
 	return {"follow_up": todo.name, "on": f"{doctype} {doc.name}", "date": todo.date}
 
 
-def assign_lead(name: str, to_user: str, *, note: str | None = None, tool: str) -> dict[str, Any]:
-	"""Put a lead on somebody's list, alongside whoever is already on it.
+def assign_record(
+	doctype: str, name: str, to_user: str, *, note: str | None = None, tool: str
+) -> dict[str, Any]:
+	"""Put a record on somebody's list, alongside whoever is already on it.
 
 	Adding rather than replacing, and deliberately. "Give this lead to Priya" usually means
 	Priya should pick it up, not that Raj should find out later that it was taken off him.
 	Taking work away from somebody is a different sentence, and the model does not get it.
+
+	Any record the agent can read is assignable, not just a Lead. The permission question
+	is the same one either way — can this user act on it, and can the assignee already see
+	it — so a per-DocType version of this would be four copies of one decision.
 	"""
-	doc = may_change("Lead", name, "write", "Assign")
-	assignee = _assignable(to_user, "Lead", name)
+	if doctype not in SPECS:
+		raise GuardError(f"{doctype!r} is not a record the assistant works with.")
+
+	doc = may_change(doctype, name, "write", "Assign")
+	assignee = _assignable(to_user, doctype, name)
 
 	if frappe.db.exists(
 		"ToDo",
 		{
-			"reference_type": "Lead",
+			"reference_type": doctype,
 			"reference_name": doc.name,
 			"allocated_to": assignee,
 			"status": "Open",
 		},
 	):
-		return {"unchanged": "Lead", "name": doc.name, "note": f"{assignee} already has this lead."}
+		return {
+			"unchanged": doctype,
+			"name": doc.name,
+			"note": f"{assignee} already has this {doctype}.",
+		}
 
 	assign_to.add(
 		{
-			"doctype": "Lead",
+			"doctype": doctype,
 			"name": doc.name,
 			"assign_to": [assignee],
 			# The text lands on a ToDo that renders as HTML, and it was written by a model
-			# that has been reading whatever the lead's own notes say.
+			# that has been reading whatever the record's own notes say.
 			"description": escape_html(note.strip()[:MAX_NOTE]) if note and note.strip() else None,
 		}
 	)
@@ -209,13 +224,13 @@ def assign_lead(name: str, to_user: str, *, note: str | None = None, tool: str) 
 	record_action(
 		action="Assign",
 		tool=tool,
-		reference_doctype="Lead",
+		reference_doctype=doctype,
 		reference_name=doc.name,
 		changes={"assigned_to": assignee, "note": note},
 	)
 
 	return {
-		"assigned": "Lead",
+		"assigned": doctype,
 		"name": doc.name,
 		"to": assignee,
 		"note": "Added to their list. Anyone it was already assigned to still has it.",
