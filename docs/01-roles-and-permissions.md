@@ -113,12 +113,15 @@ sales work.
 | **Website User (portal)** | `my_account` and `register_customer` only. Never reaches any tool above. |
 | **System Manager** | Everything, because ERPNext gives them everything. Note that layer 1 still applies: a high-risk tool still asks for approval unless the profile's autonomy says otherwise. |
 
-The assistant's *own* administration is separate:
+**The app defines no roles of its own.** Its own DocTypes — agent profiles, action
+policies, playbooks, the action log, settings — are permissioned to **System Manager** and
+**Sales Manager**, and the log is readable by **Sales User**. There is deliberately no
+"Sales AI User" role to grant: being able to open the chat panel gives you nothing, because
+every tool it can call asks ERPNext the same questions it would ask you. Access to the
+assistant and access to the data are not the same decision, and only the second one matters.
 
-| Role | Purpose |
-|---|---|
-| **Sales AI Manager** | Configure agent profiles, action policies, playbooks and settings. Read the action log and the eval cases. |
-| **Sales AI User** | Use the chat panel. Does not on its own grant any access to sales data — the user's ERPNext roles do that. |
+Who sees the panel at all is one switch: **Sales AI Settings → Enabled**. It is read in
+`boot.py` and is the only gate.
 
 ---
 
