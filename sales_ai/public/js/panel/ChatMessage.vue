@@ -15,13 +15,11 @@ const mine = computed(() => props.message.role === "user");
 // cannot inject markup by writing it into its reply.
 const rendered = computed(() => frappe.markdown(props.message.content || ""));
 
-const who = computed(() =>
-	mine.value ? frappe.session.user_fullname || __("You") : __("Sales AI")
+// One letter is enough to say whose message it is, and it costs no request. A real avatar
+// would mean fetching the user's image for every message on screen.
+const initial = computed(() =>
+	((frappe.session.user_fullname || frappe.session.user || "?")[0] || "?").toUpperCase()
 );
-
-// One letter is enough to tell the two apart at a glance, and it costs no request. A full
-// avatar would mean fetching the user's image for every message on screen.
-const initial = computed(() => (who.value[0] || "?").toUpperCase());
 
 const copied = ref(false);
 
@@ -36,41 +34,25 @@ function copy() {
 </script>
 
 <template>
-	<div class="sai-msg" :class="'sai-msg-' + message.role">
-		<div class="sai-avatar" :class="mine ? 'sai-avatar-user' : 'sai-avatar-bot'">
-			{{ mine ? initial : "" }}
-			<svg v-if="!mine" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-				<path
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.8"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M12 3v3M7.5 6h9A2.5 2.5 0 0 1 19 8.5v7a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 15.5v-7A2.5 2.5 0 0 1 7.5 6ZM9.5 11v1.5M14.5 11v1.5"
-				/>
-			</svg>
+	<!-- The two roles are laid out differently on purpose. What you said is a short pill
+	     against the right edge with your initial beside it; what the assistant said is
+	     ordinary prose filling the column, because it is the thing being read. -->
+	<div v-if="mine" class="sai-turn sai-turn-user">
+		<div v-if="message.at" class="sai-at">{{ message.at }}</div>
+		<div class="sai-said">
+			<div class="sai-pill">{{ message.content }}</div>
+			<div class="sai-avatar">{{ initial }}</div>
 		</div>
+	</div>
 
-		<div class="sai-msg-body">
-			<div class="sai-meta">
-				<span class="sai-who">{{ who }}</span>
-				<span v-if="message.at" class="sai-at">{{ message.at }}</span>
-				<button
-					v-if="!mine && message.content"
-					class="sai-copy"
-					:title="__('Copy')"
-					@click="copy"
-				>
-					{{ copied ? __("Copied") : __("Copy") }}
-				</button>
-			</div>
-			<ToolActivity v-if="message.tools && message.tools.length" :tools="message.tools" />
-			<div v-if="mine" class="sai-bubble">{{ message.content }}</div>
-			<div
-				v-else-if="message.content"
-				class="sai-bubble sai-markdown"
-				v-html="rendered"
-			></div>
+	<div v-else class="sai-turn">
+		<ToolActivity v-if="message.tools && message.tools.length" :tools="message.tools" />
+		<div v-if="message.content" class="sai-markdown" v-html="rendered"></div>
+		<div v-if="message.content" class="sai-foot">
+			<span v-if="message.at" class="sai-at">{{ message.at }}</span>
+			<button class="sai-copy" :title="__('Copy')" @click="copy">
+				{{ copied ? __("Copied") : __("Copy") }}
+			</button>
 		</div>
 	</div>
 </template>

@@ -7,7 +7,19 @@ import ApprovalCard from "./ApprovalCard.vue";
 import ChatMessage from "./ChatMessage.vue";
 import * as api from "./api.js";
 
+// Where the launcher goes. v16 has no top bar: the desk's own chrome — search, notifications,
+// the user menu — lives in the left sidebar, so that is where people look for something that
+// belongs to the whole site rather than to the page they happen to be on. The sidebar is
+// frappe's markup and not ours, and it is genuinely absent until the setup wizard has been
+// finished, so a miss falls back to a floating button rather than leaving no way in at all.
+// Read during setup rather than in `onMounted`: `make_sidebar()` runs before `app_ready` and
+// the panel is mounted on `app_ready`, so querying now avoids a frame of the fallback.
+const sidebar = document.querySelector(".body-sidebar .standard-items-sections");
+
 const open = ref(false);
+// Rolled up to its title bar, but still running. Distinct from closed: a reply streaming
+// into a minimised panel is still arriving and is there when it is opened again.
+const minimised = ref(false);
 const messages = ref([]);
 const session = ref(null);
 const runName = ref(null);
@@ -261,6 +273,12 @@ function now() {
 	return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+// Where today's messages begin. Anything above came out of a stored transcript, which
+// carries no clock — so the divider marks the boundary between "said at some point before"
+// and "said in front of you just now", rather than stamping old messages with a date
+// nobody recorded. -1 when the conversation is entirely history, and then it is not drawn.
+const todayFrom = computed(() => messages.value.findIndex((m) => m.at));
+
 async function consume(start) {
 	abort();
 	const controller = new AbortController();
@@ -407,6 +425,9 @@ async function openSession(name) {
 
 function toggle() {
 	open.value = !open.value;
+	// Opening a panel that was left rolled up should show the conversation, not the title
+	// bar it was rolled up to.
+	if (open.value) minimised.value = false;
 }
 
 function scroll() {
@@ -449,27 +470,48 @@ defineExpose({ toggle });
 
 <template>
 	<div class="sai-root">
-		<button v-show="!open" class="sai-launcher" :title="__('Sales AI')" @click="toggle">
+		<!-- Frappe's own sidebar markup, reproduced rather than reinvented, so the launcher
+		     picks up the hover, spacing and collapsed-rail behaviour of the Search and
+		     Notification items it sits with instead of looking bolted on. -->
+		<Teleport v-if="sidebar" :to="sidebar">
+			<div
+				class="sidebar-item-container"
+				:title="__('Sales AI')"
+				data-toggle="tooltip"
+				data-placement="right"
+			>
+				<div class="standard-sidebar-item" :class="{ 'sai-side-on': open }">
+					<a class="item-anchor" @click="toggle">
+						<span class="sidebar-item-icon text-ink-gray-7">
+							<svg class="icon icon-md" viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									fill="currentColor"
+									d="M12 2.5 13.8 8 19 9.8 13.8 11.6 12 17l-1.8-5.4L5 9.8 10.2 8 12 2.5Z"
+								/>
+								<path
+									fill="currentColor"
+									d="M18.5 14.5 19.4 17l2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.5Z"
+								/>
+							</svg>
+						</span>
+						<span class="sidebar-item-label">{{ __("Sales AI") }}</span>
+						<div class="sidebar-item-control"></div>
+					</a>
+				</div>
+			</div>
+		</Teleport>
+		<button v-else v-show="!open" class="sai-launcher" :title="__('Sales AI')" @click="toggle">
 			<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
 				<path
 					fill="currentColor"
-					d="M12 3a9 9 0 0 0-9 9 8.9 8.9 0 0 0 1.2 4.5L3 21l4.7-1.2A9 9 0 1 0 12 3Z"
-					opacity=".18"
-				/>
-				<path
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.6"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M12 3.8a8.2 8.2 0 0 0-7 12.5L3.9 20.1l3.9-1a8.2 8.2 0 1 0 4.2-15.3Z"
+					d="M12 2.5 13.8 8 19 9.8 13.8 11.6 12 17l-1.8-5.4L5 9.8 10.2 8 12 2.5Z"
 				/>
 			</svg>
 		</button>
 
 		<transition name="sai-slide">
-			<aside v-show="open" class="sai-panel">
-				<header class="sai-head">
+			<aside v-show="open" class="sai-panel" :class="{ 'sai-panel-min': minimised }">
+				<header class="sai-head" @dblclick="minimised = !minimised">
 					<div class="sai-title">
 						<span class="sai-status" :class="{ 'sai-status-busy': busy }"></span>
 						{{ __("Sales AI") }}
@@ -480,6 +522,13 @@ defineExpose({ toggle });
 						</button>
 						<button class="sai-icon" :title="__('New chat')" @click="newChat">
 							+
+						</button>
+						<button
+							class="sai-icon"
+							:title="minimised ? __('Expand') : __('Minimise')"
+							@click="minimised = !minimised"
+						>
+							{{ minimised ? "\u25A1" : "\u2212" }}
 						</button>
 						<button class="sai-icon" :title="__('Close')" @click="toggle">
 							&times;
@@ -541,7 +590,10 @@ defineExpose({ toggle });
 							{{ opener }}
 						</button>
 					</div>
-					<ChatMessage v-for="(message, i) in messages" :key="i" :message="message" />
+					<template v-for="(message, i) in messages" :key="i">
+						<div v-if="i === todayFrom" class="sai-day">{{ __("Today") }}</div>
+						<ChatMessage :message="message" />
+					</template>
 					<div v-if="busy" class="sai-thinking">
 						<span class="sai-dots"><i></i><i></i><i></i></span>
 						{{ notice || __("Thinking") }}
@@ -573,33 +625,7 @@ defineExpose({ toggle });
 				</button>
 
 				<footer class="sai-composer">
-					<textarea
-						ref="composer"
-						v-model="draft"
-						class="sai-textarea"
-						rows="1"
-						:placeholder="
-							listening
-								? __('Listening…')
-								: question
-								? __('Answer above to carry on')
-								: __('Ask a question')
-						"
-						:disabled="busy || !!question"
-						@input="resize"
-						@keydown.enter.exact.prevent="send"
-					></textarea>
-
-					<div class="sai-tools">
-						<button
-							v-if="canAttach"
-							class="sai-tool"
-							:title="__('Ask about a record')"
-							@click="attach"
-						>
-							+
-						</button>
-
+					<div v-if="canThink || canSwitchAgent" class="sai-tools">
 						<button
 							v-if="canThink"
 							class="sai-tool sai-tool-label"
@@ -646,12 +672,40 @@ defineExpose({ toggle });
 								</button>
 							</div>
 						</div>
+					</div>
 
-						<span class="sai-tools-gap"></span>
+					<!-- One field with its controls inside it, so the composer reads as a
+					     single thing to type into rather than a row of buttons. -->
+					<div class="sai-field">
+						<button
+							v-if="canAttach"
+							class="sai-tool sai-tool-flat"
+							:title="__('Ask about a record')"
+							@click="attach"
+						>
+							+
+						</button>
+
+						<textarea
+							ref="composer"
+							v-model="draft"
+							class="sai-textarea"
+							rows="1"
+							:placeholder="
+								listening
+									? __('Listening…')
+									: question
+									? __('Answer above to carry on')
+									: __('Ask a question')
+							"
+							:disabled="busy || !!question"
+							@input="resize"
+							@keydown.enter.exact.prevent="send"
+						></textarea>
 
 						<button
 							v-if="Recognition"
-							class="sai-tool"
+							class="sai-tool sai-tool-flat"
 							:class="{ 'sai-tool-live': listening }"
 							:title="listening ? __('Stop dictating') : __('Dictate')"
 							:disabled="busy || !!question"
@@ -684,7 +738,12 @@ defineExpose({ toggle });
 							:disabled="!!question || !draft.trim()"
 							@click="send"
 						>
-							&uarr;
+							<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+								<path
+									fill="currentColor"
+									d="M3.2 20.4 21.6 12 3.2 3.6l.1 6.6 12.1 1.8-12.1 1.8-.1 6.6Z"
+								/>
+							</svg>
 						</button>
 					</div>
 				</footer>
