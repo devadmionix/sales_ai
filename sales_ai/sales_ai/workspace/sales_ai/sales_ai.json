@@ -1,0 +1,253 @@
+{
+ "app": "sales_ai",
+ "charts": [],
+ "content": "[{\"id\":\"saiHeadWatch\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>This Week</b></span>\",\"col\":12}},{\"id\":\"saiCardRuns0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Runs This Week\",\"col\":3}},{\"id\":\"saiCardWait0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Awaiting Approval\",\"col\":3}},{\"id\":\"saiCardChng0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Changes This Week\",\"col\":3}},{\"id\":\"saiCardFail0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Failed Runs\",\"col\":3}},{\"id\":\"saiHeadShort\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Review</b></span>\",\"col\":12}},{\"id\":\"saiScUnsup00\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Unsupervised Actions\",\"col\":3}},{\"id\":\"saiScRun0000\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales AI Run\",\"col\":3}},{\"id\":\"saiScAction0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales AI Action Log\",\"col\":3}},{\"id\":\"saiScEval000\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales AI Eval Run\",\"col\":3}},{\"id\":\"saiHeadMan00\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Manage</b></span>\",\"col\":12}},{\"id\":\"saiCdActivi0\",\"type\":\"card\",\"data\":{\"card_name\":\"Activity\",\"col\":3}},{\"id\":\"saiCdGovern0\",\"type\":\"card\",\"data\":{\"card_name\":\"Governance\",\"col\":3}},{\"id\":\"saiCdAutoma0\",\"type\":\"card\",\"data\":{\"card_name\":\"Automation\",\"col\":3}},{\"id\":\"saiCdConfig0\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":3}}]",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "assets",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Sales AI",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Activity",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Session",
+   "link_count": 0,
+   "link_to": "Sales AI Session",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Run",
+   "link_count": 0,
+   "link_to": "Sales AI Run",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Action Log",
+   "link_count": 0,
+   "link_to": "Sales AI Action Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Governance",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Unsupervised Actions",
+   "link_count": 0,
+   "link_to": "Sales AI Unsupervised Actions",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Action Policy",
+   "link_count": 0,
+   "link_to": "Sales AI Action Policy",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Eval Case",
+   "link_count": 0,
+   "link_to": "Sales AI Eval Case",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Eval Run",
+   "link_count": 0,
+   "link_to": "Sales AI Eval Run",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Automation",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Playbook",
+   "link_count": 0,
+   "link_to": "Sales AI Playbook",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Playbook Run",
+   "link_count": 0,
+   "link_to": "Sales AI Playbook Run",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Trigger",
+   "link_count": 0,
+   "link_to": "Sales AI Trigger",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Settings",
+   "link_count": 0,
+   "link_to": "Sales AI Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Agent Profile",
+   "link_count": 0,
+   "link_to": "Sales AI Agent Profile",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Model",
+   "link_count": 0,
+   "link_to": "Sales AI Model",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales AI Provider",
+   "link_count": 0,
+   "link_to": "Sales AI Provider",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI",
+ "number_cards": [
+  {
+   "label": "Runs This Week",
+   "number_card_name": "Sales AI Runs This Week"
+  },
+  {
+   "label": "Awaiting Approval",
+   "number_card_name": "Sales AI Awaiting Approval"
+  },
+  {
+   "label": "Changes This Week",
+   "number_card_name": "Sales AI Changes This Week"
+  },
+  {
+   "label": "Failed This Week",
+   "number_card_name": "Sales AI Failed Runs"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "color": "Red",
+   "doc_view": "",
+   "label": "Unsupervised Actions",
+   "link_to": "Sales AI Unsupervised Actions",
+   "type": "Report"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Sales AI Run",
+   "link_to": "Sales AI Run",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "List",
+   "label": "Sales AI Action Log",
+   "link_to": "Sales AI Action Log",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sales AI Eval Run",
+   "link_to": "Sales AI Eval Run",
+   "type": "DocType"
+  }
+ ],
+ "title": "Sales AI",
+ "type": "Workspace"
+}
