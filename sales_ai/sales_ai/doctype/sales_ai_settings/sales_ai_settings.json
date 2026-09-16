@@ -9,6 +9,9 @@
   "section_break_autonomy",
   "autonomy",
   "triggers_enabled",
+  "section_break_portal",
+  "portal_enabled",
+  "portal_agent_profile",
   "section_break_limits",
   "max_writes_per_run",
   "column_break_limits",
@@ -49,6 +52,26 @@
    "fieldname": "triggers_enabled",
    "fieldtype": "Check",
    "label": "Enable Triggers"
+  },
+  {
+   "fieldname": "section_break_portal",
+   "fieldtype": "Section Break",
+   "label": "Customer Portal"
+  },
+  {
+   "default": "0",
+   "description": "Lets customers signed in to the website use the assistant. A separate switch on purpose: turning Sales AI on for your team should not also expose it to everyone who can register on your site.",
+   "fieldname": "portal_enabled",
+   "fieldtype": "Check",
+   "label": "Enable For Customers"
+  },
+  {
+   "depends_on": "portal_enabled",
+   "description": "The agent customers get. Give it only customer-facing tools: it is chosen by the server and never by the browser, so this field is the whole of what a customer can reach.",
+   "fieldname": "portal_agent_profile",
+   "fieldtype": "Link",
+   "label": "Customer Agent Profile",
+   "options": "Sales AI Agent Profile"
   },
   {
    "fieldname": "section_break_limits",

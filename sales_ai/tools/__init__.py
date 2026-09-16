@@ -25,6 +25,9 @@ MODULES: tuple[str, ...] = (
 	"sales_ai.tools.insight",
 	"sales_ai.tools.sell",
 	"sales_ai.tools.write",
+	# For the customer-facing agent only. Registering a tool makes it *nameable* by an agent
+	# profile, not available to every agent — each profile lists the tools it may call.
+	"sales_ai.tools.portal",
 )
 
 _registry: dict[str, Tool] = {}
