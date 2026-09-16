@@ -172,7 +172,14 @@ scheduler_events = {
 			"sales_ai.triggers.run_scheduled",
 			"sales_ai.playbook.resume_due",
 		],
-	}
+	},
+	# Scores are re-derived overnight rather than on every order, because they are read
+	# far more often than the rows underneath them change and a score that moves while a
+	# manager is reading the list is worse than one that is a day old. `computed_on` says
+	# exactly how old, which is why the field is there.
+	"daily": [
+		"sales_ai.intelligence.churn.recompute",
+	],
 }
 
 # Testing

@@ -1,0 +1,152 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 00:00:00",
+ "description": "Typed business memory. Written only by the intelligence layer; the agent can read these but has no tool that writes one.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "kind",
+  "subject_doctype",
+  "subject_name",
+  "column_break_head",
+  "value",
+  "band",
+  "section_break_provenance",
+  "model_version",
+  "computed_on",
+  "column_break_provenance",
+  "summary",
+  "section_break_factors",
+  "factors"
+ ],
+ "fields": [
+  {
+   "description": "The closed list of things this app is willing to remember. Free-text memory is deliberately not available.",
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Kind",
+   "options": "Churn Risk\nLead Score\nNext Best Action\nForecast",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "subject_doctype",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Subject Doctype",
+   "options": "DocType",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "subject_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Subject",
+   "options": "subject_doctype",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "0 to 100. What it measures depends on the kind.",
+   "fieldname": "value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Value",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "description": "The value in words. Derived from it, never set independently.",
+   "fieldname": "band",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Band",
+   "options": "Low\nMedium\nHigh",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_provenance",
+   "fieldtype": "Section Break",
+   "label": "Provenance"
+  },
+  {
+   "description": "Which version of the scoring rules produced this. A score computed by rules that no longer exist should be obvious, not silently trusted.",
+   "fieldname": "model_version",
+   "fieldtype": "Data",
+   "label": "Model Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "computed_on",
+   "fieldtype": "Datetime",
+   "label": "Computed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_provenance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "One sentence, assembled from the factors. Not written by a model.",
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "Summary",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_factors",
+   "fieldtype": "Section Break",
+   "label": "Why"
+  },
+  {
+   "description": "The explanation. A score with no factors is not explainable and is refused at validate.",
+   "fieldname": "factors",
+   "fieldtype": "Table",
+   "label": "Factors",
+   "options": "Sales AI Insight Factor",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "Sales AI Insight",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager"
+  },
+  {
+   "read": 1,
+   "role": "Sales User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "subject_name",
+ "track_changes": 0
+}

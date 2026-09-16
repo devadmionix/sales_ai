@@ -22,6 +22,7 @@ from sales_ai.llm.tool import Tool
 MODULES: tuple[str, ...] = (
 	"sales_ai.tools.read",
 	"sales_ai.tools.analyse",
+	"sales_ai.tools.insight",
 	"sales_ai.tools.sell",
 	"sales_ai.tools.write",
 )
