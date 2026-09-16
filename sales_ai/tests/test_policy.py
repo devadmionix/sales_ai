@@ -46,10 +46,14 @@ class PolicyTestCase(IntegrationTestCase):
 	def setUp(self) -> None:
 		frappe.flags.pop("sales_ai_unattended", None)
 		frappe.db.delete("Sales AI Action Policy", {"tool": ("like", "t\\_%")})
+		self._autonomy = frappe.db.get_single_value("Sales AI Settings", "autonomy")
 
 	def tearDown(self) -> None:
 		frappe.db.delete("Sales AI Action Policy", {"tool": ("like", "t\\_%")})
 		frappe.flags.pop("sales_ai_unattended", None)
+		# Put the site's own setting back by hand. A Single is cached, so leaving this to
+		# the rollback would restore the row and not what the next test reads.
+		frappe.db.set_single_value("Sales AI Settings", "autonomy", self._autonomy)
 
 	def _policy(self, tool: str, **kwargs: Any) -> str:
 		row = frappe.get_doc(
@@ -248,6 +252,99 @@ class TestRisk(PolicyTestCase):
 			_tool("t_quote", risk="high"), ToolCall(id="c1", name="t_quote", arguments={})
 		)
 		self.assertEqual(asked.risk, "high")
+
+
+class TestAutonomy(PolicyTestCase):
+	"""The one dial, and how it gets along with rules that were written by hand."""
+
+	def _level(self, level: str) -> None:
+		frappe.db.set_single_value("Sales AI Settings", "autonomy", level)
+
+	def test_ask_before_every_change_is_what_a_write_gets(self) -> None:
+		self._level(policy.ASK_ALWAYS)
+
+		self.assertEqual(policy.decide(_tool("t_note", risk="low")).mode, policy.REQUIRE_APPROVAL)
+
+	def test_act_on_low_risk_lets_small_things_through(self) -> None:
+		self._level(policy.ACT_ON_LOW_RISK)
+
+		for band in ("none", "low"):
+			with self.subTest(risk=band):
+				self.assertEqual(policy.decide(_tool("t_note", risk=band)).mode, policy.ALLOW)
+
+	def test_act_on_low_risk_stops_at_medium(self) -> None:
+		"""Raising the dial must not hand over the tools that commit the company."""
+		self._level(policy.ACT_ON_LOW_RISK)
+
+		for band in ("medium", "high", "critical"):
+			with self.subTest(risk=band):
+				self.assertEqual(
+					policy.decide(_tool("t_quote", risk=band)).mode, policy.REQUIRE_APPROVAL
+				)
+
+	def test_a_write_tool_that_declared_no_risk_is_not_let_through(self) -> None:
+		self._level(policy.ACT_ON_LOW_RISK)
+
+		self.assertEqual(policy.decide(_tool("t_undeclared")).mode, policy.REQUIRE_APPROVAL)
+
+	def test_reads_are_ordinary_at_every_level(self) -> None:
+		for level in (policy.READ_ONLY, policy.ASK_ALWAYS, policy.ACT_ON_LOW_RISK):
+			with self.subTest(level=level):
+				self._level(level)
+				self.assertEqual(policy.decide(_tool("t_read", writes=False)).mode, policy.ALLOW)
+
+	# -- read only is a stop, not a preference ----------------------------------------
+
+	def test_read_only_refuses_a_write(self) -> None:
+		self._level(policy.READ_ONLY)
+
+		self.assertEqual(policy.decide(_tool("t_note", risk="low")).mode, policy.DENY)
+
+	def test_read_only_beats_a_rule_that_says_allow(self) -> None:
+		"""The whole point of a stop: it must not need the rules unpicking first."""
+		self._policy("t_quote", mode=policy.ALLOW)
+		self._level(policy.READ_ONLY)
+
+		self.assertEqual(policy.decide(_tool("t_quote"), _facts(10.0)).mode, policy.DENY)
+
+	def test_read_only_beats_a_threshold_that_would_have_allowed(self) -> None:
+		self._policy("t_quote", mode=policy.THRESHOLD, threshold=5000, currency="INR")
+		self._level(policy.READ_ONLY)
+
+		self.assertEqual(policy.decide(_tool("t_quote"), _facts(96.0)).mode, policy.DENY)
+
+	def test_read_only_says_why(self) -> None:
+		self._level(policy.READ_ONLY)
+
+		refusal = policy.gate(_tool("t_note"), ToolCall(id="c1", name="t_note", arguments={}))
+		self.assertIsInstance(refusal, Refusal)
+		self.assertIn("Read Only", refusal.message)
+
+	# -- a hand-written rule is the more specific statement, so it wins ---------------
+
+	def test_a_rule_still_beats_a_permissive_level(self) -> None:
+		self._policy("t_note", mode=policy.DENY, message="Never this one.")
+		self._level(policy.ACT_ON_LOW_RISK)
+
+		self.assertEqual(policy.decide(_tool("t_note", risk="low")).mode, policy.DENY)
+
+	def test_a_rule_still_beats_a_cautious_level(self) -> None:
+		self._policy("t_quote", mode=policy.ALLOW)
+		self._level(policy.ASK_ALWAYS)
+
+		self.assertEqual(policy.decide(_tool("t_quote")).mode, policy.ALLOW)
+
+	# -- an unreadable setting must not be read as permission -------------------------
+
+	def test_an_unset_level_asks(self) -> None:
+		self._level("")
+
+		self.assertEqual(policy.autonomy(), policy.ASK_ALWAYS)
+
+	def test_a_level_nobody_recognises_asks(self) -> None:
+		self._level("Do Whatever You Like")
+
+		self.assertEqual(policy.autonomy(), policy.ASK_ALWAYS)
 
 
 class TestUnattended(PolicyTestCase):

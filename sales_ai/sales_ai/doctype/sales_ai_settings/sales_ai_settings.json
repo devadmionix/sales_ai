@@ -7,6 +7,7 @@
   "enabled",
   "default_agent_profile",
   "section_break_autonomy",
+  "autonomy",
   "triggers_enabled",
   "section_break_limits",
   "max_writes_per_run",
@@ -32,6 +33,15 @@
    "fieldname": "section_break_autonomy",
    "fieldtype": "Section Break",
    "label": "Autonomy"
+  },
+  {
+   "default": "Ask Before Every Change",
+   "description": "How much the agent may do without being asked, for tools no Action Policy covers. Read Only is different from the others: it stops every change outright, whatever the policies say.",
+   "fieldname": "autonomy",
+   "fieldtype": "Select",
+   "label": "Autonomy",
+   "options": "Read Only\nAsk Before Every Change\nAct On Low Risk",
+   "reqd": 1
   },
   {
    "default": "0",

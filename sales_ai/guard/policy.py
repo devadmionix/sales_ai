@@ -6,10 +6,19 @@
 The agent loop asks this module about every tool call before running it. There are three
 answers: run it, ask a human first, or refuse.
 
-The default is the cautious one. A tool that writes and has no rule covering it always
-asks a human — so installing the app, or adding a new write tool later, cannot quietly
-grant the agent permission to act unsupervised. Relaxing that is an explicit act: someone
-has to create a `Sales AI Action Policy` row saying so.
+The default is the cautious one. A tool that writes and has no rule covering it asks a
+human — so installing the app, or adding a new write tool later, cannot quietly grant the
+agent permission to act unsupervised. Relaxing that is an explicit act.
+
+There are two ways to relax it, and they answer different questions. A `Sales AI Action
+Policy` row is about one tool and says exactly what should happen to it. The autonomy
+level in `Sales AI Settings` is about the whole agent and only decides the tools no row
+mentions, so that running it sensibly does not mean writing thirteen rows first. Where
+both have an opinion the row wins, because it is the more specific statement.
+
+`Read Only` is the exception, and deliberately so. It is not a default to fall back on
+but a stop applied before the rows are read: an admin who selects it wants the changing
+to stop now, not to be told that a policy row still permits it.
 
 This is the last gate, not the only one. ERPNext's own permission checks still run when
 the tool executes, so approving something the user is not allowed to do still fails.
@@ -46,6 +55,16 @@ SAME_AS_MODE = "Same as Mode"
 # worst. It is a property of the code, not of configuration, so an admin cannot lower it
 # to make an approval go away — the most they can do is decide what to do about it.
 RISKS = ("none", "low", "medium", "high", "critical")
+
+# `Sales AI Settings.autonomy`. One dial, so that running the agent sensibly does not
+# require writing a rule for all thirteen tools before you start.
+READ_ONLY = "Read Only"
+ASK_ALWAYS = "Ask Before Every Change"
+ACT_ON_LOW_RISK = "Act On Low Risk"
+
+# What `Act On Low Risk` will act on. Deliberately short: these are the tools that add
+# something without replacing anything, and that nobody outside the company ever sees.
+UNSUPERVISED_RISKS = ("none", "low")
 
 
 @dataclass(frozen=True)
@@ -90,6 +109,18 @@ def decide(tool: Tool, facts: dict[str, Any] | None = None) -> Rule:
 	depends on the specifics and is given none falls back to asking a human.
 	"""
 	unattended = bool(frappe.flags.get("sales_ai_unattended"))
+	writes = bool(tool.meta.get("writes"))
+
+	# Read Only is a stop, not a preference, so it is answered before the rules are even
+	# read. Every other level only decides what happens when no rule has an opinion —
+	# see `_fallback`. That asymmetry is the point: an admin who has switched the agent
+	# to Read Only is not asking for their Allow rules to be weighed up, they are asking
+	# for the writing to stop, and it should stop without their having to unpick anything.
+	if writes and autonomy() == READ_ONLY:
+		return Rule(
+			mode=DENY,
+			message=_("Sales AI is in Read Only mode, so it cannot change records."),
+		)
 
 	for row in _policies(tool.name):
 		if row.role and row.role not in frappe.get_roles():
@@ -106,8 +137,31 @@ def decide(tool: Tool, facts: dict[str, Any] | None = None) -> Rule:
 			return _against_threshold(row, facts)
 		return Rule(mode=mode, message=row.message or "", name=row.name)
 
-	# Nothing matched. Reads are ordinary; anything that changes a record is not.
-	return Rule(mode=REQUIRE_APPROVAL if tool.meta.get("writes") else ALLOW)
+	return _fallback(tool, writes)
+
+
+def autonomy() -> str:
+	"""How much the agent may do unasked, or the cautious answer if that cannot be read.
+
+	An unset or unrecognised value means ask, rather than the most permissive reading of a
+	setting nobody has deliberately chosen.
+	"""
+	level = frappe.db.get_single_value("Sales AI Settings", "autonomy")
+	return level if level in (READ_ONLY, ASK_ALWAYS, ACT_ON_LOW_RISK) else ASK_ALWAYS
+
+
+def _fallback(tool: Tool, writes: bool) -> Rule:
+	"""What governs a tool no rule mentions.
+
+	Reads are ordinary at every level. For writes the autonomy level decides, and it only
+	ever relaxes as far as the tool's own risk band allows — so raising the level cannot
+	hand the agent a tool that submits quotations, however the setting is worded.
+	"""
+	if not writes:
+		return Rule(mode=ALLOW)
+	if autonomy() == ACT_ON_LOW_RISK and risk_of(tool) in UNSUPERVISED_RISKS:
+		return Rule(mode=ALLOW)
+	return Rule(mode=REQUIRE_APPROVAL)
 
 
 def question(tool: Tool, call: ToolCall, rule: Rule, facts: dict[str, Any] | None = None) -> Question:
