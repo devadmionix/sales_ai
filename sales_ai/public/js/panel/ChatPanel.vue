@@ -74,10 +74,13 @@ async function answer(text) {
 }
 
 function beginReply() {
-	const reply = { role: "assistant", content: "", tools: [] };
-	messages.value.push(reply);
+	// Read the pushed entry back out rather than keeping the object that went in. `messages`
+	// is a ref, so the array holds the raw object and hands back a reactive proxy on access;
+	// streaming into the raw one stores the text but never tells Vue to redraw, which is a
+	// reply that arrives correctly and is never seen.
+	messages.value.push({ role: "assistant", content: "", tools: [] });
 	scroll();
-	return reply;
+	return messages.value[messages.value.length - 1];
 }
 
 async function consume(start) {
