@@ -22,6 +22,8 @@ from frappe.utils import strip_html_tags
 from pydantic import BaseModel, Field
 
 from sales_ai.guard.specs import SPECS, ReadSpec
+from sales_ai.llm.tool import ToolError
+from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_denial
 
 MAX_LIMIT = 50
 DEFAULT_LIMIT = 20
@@ -30,6 +32,12 @@ DEFAULT_LIMIT = 20
 MAX_TEXT = 1200
 
 OPERATORS = ("=", "!=", ">", "<", ">=", "<=", "in", "not in", "like", "not like", "between", "is")
+
+# Said for a record that does not exist and for one this user may not see, deliberately
+# without distinguishing them. "Available to you" is the honest reading of both: from where
+# the user stands the two are the same, and saying which would answer a question they were
+# not entitled to ask. The DocType and name are safe to echo — the model supplied them.
+NO_SUCH_RECORD = "No {doctype} called {name!r} is available to you."
 
 Operator = Literal["=", "!=", ">", "<", ">=", "<=", "in", "not in", "like", "not like", "between", "is"]
 Value = str | float | bool | list[str | float] | None
@@ -49,8 +57,33 @@ class Filter(BaseModel):
 	)
 
 
-class GuardError(ValueError):
-	"""A request the model is not allowed to make. The message is written for the model."""
+class GuardError(ToolError):
+	"""A request the model is not allowed to make. The message is written for the model.
+
+	A `ToolError` because of that last sentence: the agent loop shows these verbatim and
+	replaces every other exception with a fixed phrase.
+	"""
+
+
+def deny(action: str, doctype: str, name: str | None, reason: str) -> GuardError:
+	"""Record a refused attempt and hand back the error to raise.
+
+	Returns rather than raises so the call site reads `raise deny(...)`, which keeps the
+	refusal visible at the point it is decided instead of hiding a control-flow jump inside
+	a function that looks like it only writes a log row.
+
+	The tool is read from the ambient call rather than passed in: this is reached from read
+	paths that have no reason to know which tool invoked them, and the flag is set by
+	`policy.gate`, which runs before every single tool call.
+	"""
+	record_denial(
+		action=action,
+		tool=frappe.flags.get("sales_ai_tool"),
+		reference_doctype=doctype,
+		reference_name=name,
+		reason=reason,
+	)
+	return GuardError(reason)
 
 
 def read_list(
@@ -82,6 +115,10 @@ def read_list(
 
 def read_document(doctype: str, name: str) -> dict[str, Any]:
 	spec = _spec(doctype)
+	# Ask before fetching, so a name the user may not see and a name that does not exist
+	# fail the same way. Left to `get_doc`, the first raises PermissionError and the second
+	# DoesNotExistError, and the difference is the answer to a question they cannot ask.
+	_may_read(doctype, name)
 	doc = frappe.get_doc(doctype, name)
 	# Checks the role permission and the User Permissions attached to this record.
 	doc.check_permission("read")
@@ -178,18 +215,17 @@ def _clean(spec: ReadSpec, row: dict[str, Any]) -> dict[str, Any]:
 def _may_read(doctype: str, name: str) -> str:
 	"""A record the model named has to exist, and be one this user could have picked itself.
 
-	Both halves matter. Without the first, the failure is ERPNext's and says something the
-	model cannot act on. Without the second, naming a record and watching the answer change
-	is a way to confirm that record exists — so a refusal has to come before the lookup, not
-	after it.
+	Both halves are checked, and both give the same answer, because the difference between
+	them is itself worth hiding. If a name the user is not allowed to see says "no access"
+	while a name nobody has says "does not exist", then guessing names until the wording
+	changes confirms which records are real — the customer list, roughly, one guess at a
+	time. So the two are one phrase, and the check runs before the lookup rather than after.
 	"""
-	if not frappe.db.exists(doctype, name):
-		raise GuardError(f"There is no {doctype} called {name!r}.")
-	if not (
+	if not frappe.db.exists(doctype, name) or not (
 		frappe.has_permission(doctype, "read", doc=name)
 		or frappe.has_permission(doctype, "select", doc=name)
 	):
-		raise GuardError(f"You do not have access to the {doctype} {name!r}.")
+		raise deny("Read", doctype, name, NO_SUCH_RECORD.format(doctype=doctype, name=name))
 	return name
 
 

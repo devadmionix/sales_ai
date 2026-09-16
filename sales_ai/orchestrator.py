@@ -10,6 +10,7 @@ the session transcript that makes a paused run resumable in a later request.
 
 from __future__ import annotations
 
+import traceback
 from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any
@@ -150,7 +151,14 @@ def build_agent(profile, *, think: bool = False) -> Agent:
 		system_prompt=prompt.build(profile, selected),
 		max_iterations=profile.max_iterations or 12,
 		policy=policy.gate,
+		on_error=_log_tool_failure,
 	)
+
+
+def _log_tool_failure(tool_name: str, exc: Exception) -> None:
+	"""Keep the traceback of a tool that crashed, since the model is only told a phrase."""
+	trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+	frappe.log_error(title=f"Sales AI: {tool_name} failed", message=trace)
 
 
 def _persist(session_doc, run: SalesAIRun, result: RunResult) -> dict[str, Any]:

@@ -43,6 +43,7 @@ from sales_ai import budget
 from sales_ai.llm.agent import Question, Refusal
 from sales_ai.llm.tool import Tool
 from sales_ai.llm.types import ToolCall
+from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_denial
 
 ALLOW = "Allow"
 REQUIRE_APPROVAL = "Require Approval"
@@ -81,11 +82,18 @@ class Rule:
 
 def gate(tool: Tool, call: ToolCall) -> Question | Refusal | None:
 	"""The callback the agent loop and the playbook engine both use. `None` means go ahead."""
+	# Every tool call passes through here, which makes it the one place that can say which
+	# tool is running. The permission checks further down are reached from code that has no
+	# business knowing, and they need it to name the tool on the row they write.
+	frappe.flags.sales_ai_tool = tool.name
+
 	if tool.meta.get("writes") and budget.writes_left(_write_scope()) == 0:
 		# Refused rather than thrown: the agent is told, so it stops changing things but
 		# can still finish the turn and say what it did and what it did not get to.
-		return Refusal(
-			message=_("This run has changed as many records as it is allowed to. Stop here.")
+		return _refuse(
+			tool,
+			call,
+			_("This run has changed as many records as it is allowed to. Stop here."),
 		)
 
 	# Worked out once and used twice: to decide whether this is small enough to act on
@@ -97,8 +105,28 @@ def gate(tool: Tool, call: ToolCall) -> Question | Refusal | None:
 	if rule.mode == ALLOW:
 		return None
 	if rule.mode == DENY:
-		return Refusal(message=rule.message or _("This action is not allowed."))
+		return _refuse(tool, call, rule.message or _("This action is not allowed."))
 	return question(tool, call, rule, facts)
+
+
+def _refuse(tool: Tool, call: ToolCall, message: str) -> Refusal:
+	"""Turn the gate down and leave a record of it.
+
+	The model is told and moves on, so without this the attempt would exist only inside a
+	transcript nobody reads. A rule that keeps firing is either a rule in the wrong place or
+	a user pushing at it, and both are things an admin should be able to find by listing.
+	"""
+	record_denial(
+		# No action category: the gate refuses a whole tool call, and which of Create or
+		# Submit that would have turned into is a question only the tool can answer. Its
+		# name is on the row and says more precisely what was being attempted.
+		action=None,
+		tool=tool.name,
+		reference_doctype=call.arguments.get("doctype"),
+		reference_name=call.arguments.get("name"),
+		reason=message,
+	)
+	return Refusal(message=message)
 
 
 def decide(tool: Tool, facts: dict[str, Any] | None = None) -> Rule:

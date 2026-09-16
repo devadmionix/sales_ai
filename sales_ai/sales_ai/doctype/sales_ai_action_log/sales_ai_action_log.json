@@ -2,11 +2,12 @@
  "actions": [],
  "autoname": "format:SAI-ACT-{YYYY}-{#####}",
  "creation": "2026-09-15 00:00:00",
- "description": "One row for every change the agent actually made. Written by the system; nobody creates these by hand.",
+ "description": "One row for every change the agent made, and one for every change it was refused. Written by the system; nobody creates these by hand.",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "action",
+  "outcome",
   "reference_doctype",
   "reference_name",
   "column_break_head",
@@ -15,6 +16,7 @@
   "run",
   "playbook_run",
   "section_break_changes",
+  "reason",
   "changes"
  ],
  "fields": [
@@ -24,7 +26,18 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Action",
-   "options": "Create\nUpdate\nNote\nFollow Up\nDraft\nSubmit",
+   "options": "Read\nCreate\nUpdate\nNote\nFollow Up\nAssign\nDraft\nSubmit",
+   "read_only": 1
+  },
+  {
+   "default": "Allowed",
+   "description": "Denied rows are attempts that were stopped. They are kept because a pattern of them is worth seeing.",
+   "fieldname": "outcome",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Outcome",
+   "options": "Allowed\nDenied",
    "read_only": 1
   },
   {
@@ -84,6 +97,14 @@
    "fieldname": "section_break_changes",
    "fieldtype": "Section Break",
    "label": "Changes"
+  },
+  {
+   "depends_on": "eval:doc.outcome=='Denied'",
+   "description": "What the user was told. Deliberately the same wording they saw, so this row and the conversation agree.",
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason Refused",
+   "read_only": 1
   },
   {
    "description": "Fields set on create, or before and after values on update.",

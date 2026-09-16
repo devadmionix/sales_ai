@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from sales_ai.llm.model import Model
-from sales_ai.llm.tool import Tool, ToolArgumentError
+from sales_ai.llm.tool import Tool, ToolError
 from sales_ai.llm.types import (
 	ChatResponse,
 	Notice,
@@ -127,12 +127,16 @@ class Agent:
 		system_prompt: str | None = None,
 		max_iterations: int = 12,
 		policy: Callable[[Tool, ToolCall], Question | Refusal | None] | None = None,
+		on_error: Callable[[str, Exception], None] | None = None,
 	):
 		self.model = model
 		self.tools = {t.name: t for t in tools}
 		self.system_prompt = system_prompt
 		self.max_iterations = max_iterations
 		self.policy = policy
+		# Where a crashing tool goes. The model and the transcript only get a fixed phrase,
+		# so without this the exception would be lost and the bug undebuggable.
+		self.on_error = on_error
 
 	# -- entry points ----------------------------------------------------------------
 
@@ -328,15 +332,28 @@ class Agent:
 
 		try:
 			value = tool(**call.arguments)
-		except ToolArgumentError as e:
+		except ToolError as e:
+			# Written for the model: bad arguments, or a refusal the guard layer phrased.
 			return done(json.dumps({"error": str(e)}), str(e))
 		except Exception as e:
-			# A failing tool must not fail the run; the model is told and can adapt.
-			message = f"{type(e).__name__}: {e}"[:500]
-			return done(json.dumps({"error": message}), message)
+			# Anything else is a bug, and its text is not ours to show. Exception types and
+			# messages name tables, fields and records, and a permission error says out loud
+			# that a record exists — so the model, the transcript and the user all get the
+			# same phrase regardless of what went wrong. The real error goes to `on_error`.
+			if self.on_error:
+				self.on_error(call.name, e)
+			return done(json.dumps({"error": _TOOL_FAILED}), _TOOL_FAILED)
 
 		return done(_serialise(value))
 
+
+# One phrase for every failure that was not written for the model. It asserts nothing: not
+# that the record exists, not that it does not, not that permission is the reason. Anything
+# narrower would let the model — and so the user — tell those cases apart by asking.
+_TOOL_FAILED = (
+	"That request could not be completed. It may not be permitted, "
+	"or the record may not be available to you."
+)
 
 _BUDGET_MESSAGE = (
 	"I stopped because this task needed more steps than allowed. "

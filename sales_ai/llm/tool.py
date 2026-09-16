@@ -25,7 +25,16 @@ from typing import Annotated, Any, get_args, get_origin, get_type_hints
 from pydantic import ConfigDict, Field, ValidationError, create_model, validate_call
 
 
-class ToolArgumentError(ValueError):
+class ToolError(ValueError):
+	"""An error whose message was written to be read by the model.
+
+	The agent loop passes these through verbatim. Every other exception is an internal
+	failure, and its text — a traceback line, a table name, the identifier of a record
+	the user may not know about — is replaced before the model ever sees it.
+	"""
+
+
+class ToolArgumentError(ToolError):
 	"""Raised when the model's arguments do not match the handler signature.
 
 	The agent loop turns this into a tool result the model can read and retry, rather

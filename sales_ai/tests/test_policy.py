@@ -46,10 +46,12 @@ class PolicyTestCase(IntegrationTestCase):
 	def setUp(self) -> None:
 		frappe.flags.pop("sales_ai_unattended", None)
 		frappe.db.delete("Sales AI Action Policy", {"tool": ("like", "t\\_%")})
+		frappe.db.delete("Sales AI Action Log", {"tool": ("like", "t\\_%")})
 		self._autonomy = frappe.db.get_single_value("Sales AI Settings", "autonomy")
 
 	def tearDown(self) -> None:
 		frappe.db.delete("Sales AI Action Policy", {"tool": ("like", "t\\_%")})
+		frappe.db.delete("Sales AI Action Log", {"tool": ("like", "t\\_%")})
 		frappe.flags.pop("sales_ai_unattended", None)
 		# Put the site's own setting back by hand. A Single is cached, so leaving this to
 		# the rollback would restore the row and not what the next test reads.
@@ -211,6 +213,38 @@ class TestGate(PolicyTestCase):
 		verdict = policy.gate(_tool("t_quote"), ToolCall(id="c1", name="t_quote", arguments={}))
 		self.assertIsInstance(verdict, Refusal)
 		self.assertIn("Not from this account.", verdict.message)
+
+	def test_a_denial_is_written_down(self) -> None:
+		"""The model is told and carries on, so the transcript is the only other trace.
+
+		A Deny rule that fires constantly is a rule aimed at the wrong thing, or a person
+		testing where it stops. Neither is visible without a row per attempt.
+		"""
+		self._policy("t_quote", mode=policy.DENY, message="Not from this account.")
+		policy.gate(
+			_tool("t_quote"),
+			ToolCall(id="c1", name="t_quote", arguments={"doctype": "Quotation", "name": "Q-1"}),
+		)
+
+		rows = frappe.get_all(
+			"Sales AI Action Log",
+			filters={"outcome": "Denied", "tool": "t_quote"},
+			fields=["reference_doctype", "reference_name", "reason", "user"],
+		)
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0].reference_doctype, "Quotation")
+		self.assertEqual(rows[0].reference_name, "Q-1")
+		self.assertEqual(rows[0].reason, "Not from this account.")
+		self.assertEqual(rows[0].user, frappe.session.user)
+
+	def test_an_allowed_call_is_not_written_down_as_a_denial(self) -> None:
+		self._policy("t_quote", mode=policy.ALLOW)
+		self.assertIsNone(
+			policy.gate(_tool("t_quote"), ToolCall(id="c1", name="t_quote", arguments={}))
+		)
+		self.assertFalse(
+			frappe.db.exists("Sales AI Action Log", {"outcome": "Denied", "tool": "t_quote"})
+		)
 
 
 class TestRisk(PolicyTestCase):
