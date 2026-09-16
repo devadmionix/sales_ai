@@ -18,13 +18,26 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Generator
 from typing import Any
 
 import frappe
 from frappe import _
 
-from sales_ai.llm.types import ChatResponse, ToolCall, ToolCallBegin
+from sales_ai.llm.types import ChatResponse, Notice, ToolCall, ToolCallBegin
+
+# A provider that is busy is not a provider that is broken. Rate limits and dropped
+# connections are the ordinary weather of calling someone else's API, and failing the whole
+# run on the first one throws away everything the model has already been paid to read.
+#
+# Three attempts, because a fourth is rarely a different answer. Where the provider says
+# how long to wait, that is obeyed — its own number is better than our guess — but never
+# past `MAX_WAIT`, because a request handler that sleeps for five minutes is its own
+# outage. Anything longer is honestly reported as a limit to wait out rather than sat on.
+MAX_ATTEMPTS = 3
+BACKOFF = 2.0
+MAX_WAIT = 60.0
 
 
 class Model:
@@ -104,10 +117,14 @@ class Model:
 	) -> ChatResponse:
 		import litellm
 
-		try:
-			raw = litellm.completion(**self._request(messages, tools, stream=False))
-		except Exception as e:
-			_rethrow(e, self.model_id)
+		for attempt in range(1, MAX_ATTEMPTS + 1):
+			try:
+				raw = litellm.completion(**self._request(messages, tools, stream=False))
+				break
+			except Exception as e:
+				if attempt == MAX_ATTEMPTS or not _is_transient(e):
+					_rethrow(e, self.model_id)
+				time.sleep(_wait_for(e, attempt))
 
 		choice = raw.choices[0]
 		return ChatResponse(
@@ -120,13 +137,38 @@ class Model:
 
 	def _chat_stream(
 		self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None
+	) -> Generator[str | ToolCallBegin | Notice, None, ChatResponse]:
+		"""One model turn, tried again while the failure is the provider's and nothing has
+		been said yet.
+
+		Once the model has started speaking a retry would repeat text the user has already
+		read, so a failure mid-sentence is final. That costs little: the failures worth
+		retrying — a rate limit above all — arrive before the first token, not during it.
+		"""
+		for attempt in range(1, MAX_ATTEMPTS + 1):
+			try:
+				return (yield from self._attempt_stream(messages, tools))
+			except _ProviderFailure as failure:
+				if failure.spoken or attempt == MAX_ATTEMPTS or not _is_transient(failure.cause):
+					_rethrow(failure.cause, self.model_id)
+
+				delay = _wait_for(failure.cause, attempt)
+				yield Notice(
+					_("The AI provider is busy. Trying again in {0} seconds.").format(round(delay))
+				)
+				time.sleep(delay)
+
+	def _attempt_stream(
+		self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None
 	) -> Generator[str | ToolCallBegin, None, ChatResponse]:
+		"""A single try. Failures that came from the provider are wrapped, so the caller can
+		tell them apart from a bug in the parsing below and retry only the former."""
 		import litellm
 
 		try:
 			chunks = litellm.completion(**self._request(messages, tools, stream=True))
 		except Exception as e:
-			_rethrow(e, self.model_id)
+			raise _ProviderFailure(e, spoken=False) from e
 
 		content_parts: list[str] = []
 		# Providers stream tool calls as fragments keyed by position, so accumulate by index.
@@ -135,6 +177,9 @@ class Model:
 		usage: dict[str, int] = {}
 		finish_reason = None
 		model = self.model_id
+		# Whether the user has seen anything yet, which is what decides if a late failure
+		# may be retried.
+		spoken = False
 
 		# `litellm.completion(stream=True)` returns before it has spoken to the provider, so a
 		# refusal — a rate limit above all — arrives on the first pull rather than at the call
@@ -147,7 +192,7 @@ class Model:
 			except StopIteration:
 				break
 			except Exception as e:
-				_rethrow(e, self.model_id)
+				raise _ProviderFailure(e, spoken=spoken) from e
 
 			if chunk_usage := _parse_usage(getattr(chunk, "usage", None)):
 				usage = chunk_usage
@@ -163,6 +208,7 @@ class Model:
 
 			if text := getattr(delta, "content", None):
 				content_parts.append(text)
+				spoken = True
 				yield text
 
 			for fragment in getattr(delta, "tool_calls", None) or []:
@@ -182,6 +228,7 @@ class Model:
 				# a long argument payload streams in.
 				if index not in announced and slot["id"] and slot["name"]:
 					announced.add(index)
+					spoken = True
 					yield ToolCallBegin(id=slot["id"], name=slot["name"])
 
 		return ChatResponse(
@@ -259,6 +306,72 @@ def _decode_arguments(raw: str | None) -> tuple[dict[str, Any], str | None]:
 	if not isinstance(decoded, dict):
 		return {}, f"Arguments must be a JSON object, got {type(decoded).__name__}."
 	return decoded, None
+
+
+class _ProviderFailure(Exception):
+	"""A failure that came from the provider, and whether the user had already seen output.
+
+	Carried rather than re-raised so that a bug in this module's own parsing — which is not
+	the provider's fault and will fail the same way three times — is never retried.
+	"""
+
+	def __init__(self, cause: Exception, *, spoken: bool):
+		super().__init__(str(cause))
+		self.cause = cause
+		self.spoken = spoken
+
+
+# Worth trying again: the provider is busy, overloaded, or was briefly unreachable. Not
+# here on purpose: 400, 401, 403 and 404. A malformed request, a bad key or a model that
+# does not exist will fail identically on every attempt, so retrying only delays the
+# message that tells someone what to fix.
+_TRANSIENT_STATUS = frozenset({408, 429, 500, 502, 503, 504})
+_TRANSIENT_NAMES = frozenset(
+	{
+		"RateLimitError",
+		"Timeout",
+		"APITimeoutError",
+		"APIConnectionError",
+		"ServiceUnavailableError",
+		"InternalServerError",
+	}
+)
+
+
+def _is_transient(error: Exception) -> bool:
+	# litellm re-wraps a mid-stream failure under its own class but copies the status
+	# across, so the code is checked first and is the steadier signal of the two.
+	if getattr(error, "status_code", None) in _TRANSIENT_STATUS:
+		return True
+	return type(error).__name__ in _TRANSIENT_NAMES
+
+
+def _wait_for(error: Exception, attempt: int) -> float:
+	"""How long to hold off, preferring the provider's own answer to our guess."""
+	asked = _provider_delay(error)
+	if asked is not None:
+		return min(asked, MAX_WAIT)
+	return min(BACKOFF * (2 ** (attempt - 1)), MAX_WAIT)
+
+
+# Several providers put the wait in the message rather than in a header — Gemini's rate
+# limit arrives as "Please retry in 45.484338593s" and nowhere else.
+_RETRY_IN = re.compile(r"retry in ([0-9.]+)\s*s", re.IGNORECASE)
+
+
+def _provider_delay(error: Exception) -> float | None:
+	value: Any = getattr(error, "retry_after", None)
+	if value is None:
+		headers = getattr(getattr(error, "response", None), "headers", None) or {}
+		value = headers.get("retry-after") or headers.get("Retry-After")
+	if value is None and (found := _RETRY_IN.search(str(error))):
+		value = found.group(1)
+
+	try:
+		return max(0.0, float(value)) if value is not None else None
+	except (TypeError, ValueError):
+		# A `Retry-After` may also be an HTTP date. Rare, and the backoff covers it.
+		return None
 
 
 def _rethrow(error: Exception, model_id: str) -> None:

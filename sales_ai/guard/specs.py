@@ -109,6 +109,10 @@ class WriteSpec:
 	create_fields: tuple[str, ...]
 	update_fields: tuple[str, ...]
 	required: tuple[str, ...] = ()
+	# The field that says "this is the same one again", where the DocType has such a
+	# thing. Left unset where a repeat is legitimate: a party can have two open
+	# opportunities, and two people can share a first name.
+	identity: str | None = None
 
 	def allowed(self, creating: bool) -> tuple[str, ...]:
 		return self.create_fields if creating else self.update_fields
@@ -643,6 +647,7 @@ WRITE_SPECS: dict[str, WriteSpec] = {
 			"annual_revenue",
 		),
 		required=("first_name",),
+		identity="email_id",
 	),
 	"Opportunity": WriteSpec(
 		label="opportunity",
@@ -708,7 +713,11 @@ WRITE_SPECS: dict[str, WriteSpec] = {
 			"customer_details",
 			"disabled",
 		),
-		required=("customer_name", "customer_type"),
+		# Not customer_type: ERPNext marks it mandatory but defaults it to "Company", so
+		# demanding it would make "create a customer called ABC Medical Store" — a complete
+		# request by ERPNext's own reckoning — cost a clarifying question for nothing.
+		required=("customer_name",),
+		identity="customer_name",
 	),
 	"Contact": WriteSpec(
 		label="contact",

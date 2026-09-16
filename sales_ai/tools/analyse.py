@@ -55,7 +55,8 @@ Money measures are in the company's own currency, never a mix of currencies.
 
 Results respect the user's permissions, so the numbers cover only what this user may see.
 
-Record types:
+Record types, as `measures / by / dates` — the legal values for the measures, group_by and
+date_field arguments. Dates are YYYY-MM-DD.
 {_CATALOGUE}""",
 )
 def measure_records(
@@ -120,7 +121,9 @@ disagrees with it is worse than useless.
 
 Returns at most {MAX_ROWS} rows, and says so when there were more.
 
-Reports:
+Reports and their filters. `*` must be supplied, `=` lists the only accepted values, `:`
+names the DocType a value must exist in. Anything else is a date (YYYY-MM-DD), a whole
+number, or true/false.
 {_REPORTS}""",
 )
 def run_sales_report(

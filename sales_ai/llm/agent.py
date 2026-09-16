@@ -25,7 +25,14 @@ from typing import Any, Literal
 
 from sales_ai.llm.model import Model
 from sales_ai.llm.tool import Tool, ToolArgumentError
-from sales_ai.llm.types import ChatResponse, ToolCall, ToolCallBegin, add_usage, empty_usage
+from sales_ai.llm.types import (
+	ChatResponse,
+	Notice,
+	ToolCall,
+	ToolCallBegin,
+	add_usage,
+	empty_usage,
+)
 
 APPROVE = "Approve"
 DENY = "Deny"
@@ -108,7 +115,7 @@ class Checkpoint:
 	messages: list[dict[str, Any]]
 
 
-Event = str | ToolCallBegin | ToolFinished | Checkpoint
+Event = str | ToolCallBegin | ToolFinished | Checkpoint | Notice
 
 
 class Agent:

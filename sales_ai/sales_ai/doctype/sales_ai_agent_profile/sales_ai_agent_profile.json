@@ -59,7 +59,7 @@
    "label": "Instructions"
   },
   {
-   "description": "The agent's standing instructions. Written by you, never by a user or a document.",
+   "description": "The agent's standing instructions, added to every turn of every conversation. Written by you, never by a user or a document. Say how it should behave, not what it should be interested in: an agent told here to watch stale leads will raise them when the user asked about something else entirely.",
    "fieldname": "system_prompt",
    "fieldtype": "Text Editor",
    "label": "System Prompt"

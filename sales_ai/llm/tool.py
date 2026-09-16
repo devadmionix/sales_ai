@@ -149,7 +149,7 @@ def _split_description(annotation: Any) -> tuple[Any, str | None]:
 
 
 def _simplify(schema: dict[str, Any]) -> dict[str, Any]:
-	"""Inline `$defs` and drop generated titles.
+	"""Inline `$defs`, drop generated titles, and say optional the short way.
 
 	Nested models are legal JSON Schema but `$ref` support varies across providers, and
 	pydantic's auto-generated titles are noise that costs tokens on every single call.
@@ -175,7 +175,36 @@ def _resolve(node: Any, defs: dict[str, Any], seen: frozenset[str] | set[str]) -
 		merged = {**target, **{k: v for k, v in node.items() if k != "$ref"}}
 		return _resolve(merged, defs, {*seen, key})
 
-	return {k: _resolve(v, defs, seen) for k, v in node.items() if k != "title"}
+	return _compact({k: _resolve(v, defs, seen) for k, v in node.items() if k != "title"})
+
+
+_NULL = {"type": "null"}
+
+
+def _compact(node: dict[str, Any]) -> dict[str, Any]:
+	"""Drop the nullability pydantic spells out and `required` already implies.
+
+	`X | None` with a default of `None` becomes a two-branch `anyOf` and a `"default": null`.
+	Neither tells the model anything it cannot read off `required`: an argument it does not
+	want is left out, not sent as null. Saying it the long way costs about fifteen tokens per
+	optional argument — on every call, of every iteration, of every run — and actively invites
+	a model to send an explicit null where the field should simply be absent.
+
+	Nothing is validated from this schema, so narrowing it cannot loosen anything: the real
+	check is pydantic against the handler's own signature, which still accepts None.
+	"""
+	node = {key: value for key, value in node.items() if not (key == "default" and value is None)}
+
+	branches = node.get("anyOf")
+	if not isinstance(branches, list) or _NULL not in branches:
+		return node
+
+	kept = [branch for branch in branches if branch != _NULL]
+	if not kept:
+		return node
+	if len(kept) == 1:
+		return {**kept[0], **{key: value for key, value in node.items() if key != "anyOf"}}
+	return {**node, "anyOf": kept}
 
 
 def _format_validation_error(error: ValidationError) -> str:

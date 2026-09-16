@@ -83,13 +83,20 @@ def aggregatable_doctypes() -> list[str]:
 
 
 def describe(doctype: str) -> str:
-	"""A one-paragraph summary of what may be measured, for the tool description."""
+	"""One line per DocType for the tool description, in the compact notation the tool
+	explains: `measures / by / dates`.
+
+	Terse on purpose. This text is not documentation somebody reads once — it is resent on
+	every model call of every iteration, so each label word spelled out in full is a cost
+	paid thousands of times to say something the punctuation already says. The field names
+	themselves stay complete: those the model has to get exactly right first time, and a
+	wrong guess costs a whole extra round trip."""
 	spec = _spec(doctype)
 	return (
-		f"{doctype}: {spec.purpose} "
-		f"Measures: {', '.join(spec.measures)}. "
-		f"Group by: {', '.join(spec.group_by)}. "
-		f"Date fields: {', '.join(spec.date_fields)}."
+		f"{doctype} — {spec.purpose} "
+		f"measures: {','.join(spec.measures)} / "
+		f"by: {','.join(spec.group_by)} / "
+		f"dates: {','.join(spec.date_fields)}"
 	)
 
 

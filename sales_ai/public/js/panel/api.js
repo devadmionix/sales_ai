@@ -32,6 +32,13 @@ async function call(method, args) {
 	return response.message;
 }
 
+// How long a stream may say nothing before it is presumed dead. Generous, because a model
+// call with a slow tool behind it can legitimately be quiet for a while, and cutting off a
+// working answer is worse than waiting. The point is only that "Thinking…" cannot last for
+// ever: a connection dropped by a proxy or a laptop lid looks exactly like a slow model
+// from here, and without this the panel sits on it until the tab is closed.
+const IDLE_TIMEOUT = 120000;
+
 async function stream(url, payload, on, signal) {
 	const response = await fetch(url, {
 		method: "POST",
@@ -54,19 +61,39 @@ async function stream(url, payload, on, signal) {
 	const decoder = new TextDecoder();
 	let buffer = "";
 
-	for (;;) {
-		const { value, done } = await reader.read();
-		if (done) break;
-		buffer += decoder.decode(value, { stream: true });
+	try {
+		for (;;) {
+			const { value, done } = await withIdleTimeout(reader.read(), reader);
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
 
-		// Frames are separated by a blank line; the tail is an incomplete frame.
-		const frames = buffer.split("\n\n");
-		buffer = frames.pop();
-		for (const frame of frames) {
-			const parsed = parse(frame);
-			if (parsed) on(parsed.event, parsed.data);
+			// Frames are separated by a blank line; the tail is an incomplete frame.
+			const frames = buffer.split("\n\n");
+			buffer = frames.pop();
+			for (const frame of frames) {
+				const parsed = parse(frame);
+				// A frame we cannot read is a fault, not a thing to skip quietly. Dropping
+				// it loses whatever it said — which may have been the answer.
+				if (parsed) on(parsed.event, parsed.data);
+				else if (frame.trim()) on("error", { message: __("The assistant sent something unreadable.") });
+			}
 		}
+	} finally {
+		// Aborting mid-stream leaves the body open otherwise, and the server goes on
+		// generating into a socket nobody is reading.
+		reader.cancel().catch(() => {});
 	}
+}
+
+function withIdleTimeout(read, reader) {
+	let timer;
+	const expiry = new Promise((_resolve, reject) => {
+		timer = setTimeout(() => {
+			reader.cancel().catch(() => {});
+			reject(new Error(__("The assistant stopped responding.")));
+		}, IDLE_TIMEOUT);
+	});
+	return Promise.race([read, expiry]).finally(() => clearTimeout(timer));
 }
 
 function parse(frame) {

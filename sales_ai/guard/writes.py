@@ -40,6 +40,7 @@ def create_record(doctype: str, values: dict[str, Any], *, tool: str) -> dict[st
 	if missing:
 		raise GuardError(f"A new {spec.label} needs {', '.join(missing)}.")
 
+	_not_a_duplicate(doctype, spec, clean)
 	frappe.has_permission(doctype, "create", throw=True)
 
 	doc = frappe.new_doc(doctype)
@@ -175,8 +176,15 @@ def writable_doctypes() -> list[str]:
 
 
 def describe_writable(doctype: str, creating: bool) -> str:
+	"""One line per DocType for the tool description, `*` marking a field that must be
+	supplied. Without the mark every field reads as equally expected, and a model that
+	cannot tell asks the user for all of them."""
 	spec = _spec(doctype)
-	return f"{doctype}: {', '.join(spec.allowed(creating))}."
+	fields = [
+		f"{field}*" if creating and field in spec.required else field
+		for field in spec.allowed(creating)
+	]
+	return f"{doctype}: {', '.join(fields)}."
 
 
 # -- internals -----------------------------------------------------------------------
@@ -202,6 +210,38 @@ def _checked(spec: WriteSpec, values: dict[str, Any], *, creating: bool) -> dict
 			f"Allowed: {', '.join(allowed)}."
 		)
 	return {field: value for field, value in values.items() if value is not None}
+
+
+def _not_a_duplicate(doctype: str, spec: WriteSpec, values: dict[str, Any]) -> None:
+	"""Refuse to create a second one of something that already exists.
+
+	The model is told to search first, but an instruction in a tool description is a hope,
+	not a check — and afterwards a second "ABC Medical Store" is indistinguishable from the
+	first, with nothing in ERPNext that would have objected. Naming the record it should
+	have found lets it use that one instead of asking the user to sort out the mess later.
+
+	The lookup deliberately ignores permissions, because a duplicate the user cannot see is
+	still a duplicate. What it does not do is hand back a name the user has no business
+	knowing: that half of the answer is gated, for the same reason `_may_read` is.
+	"""
+	if not spec.identity:
+		return
+	value = values.get(spec.identity)
+	if not value:
+		return
+
+	existing = frappe.db.get_value(doctype, {spec.identity: value}, "name")
+	if not existing:
+		return
+	if not frappe.has_permission(doctype, "read", doc=existing):
+		raise GuardError(
+			f"A {spec.label} with {spec.identity} {value!r} already exists, "
+			f"but is not one you have access to."
+		)
+	raise GuardError(
+		f"{doctype} {existing!r} already has {spec.identity} {value!r}. "
+		f"Work with that one, or create this with a different {spec.identity}."
+	)
 
 
 def _fill_company(doc) -> None:

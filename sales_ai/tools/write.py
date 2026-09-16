@@ -49,11 +49,14 @@ _UPDATABLE = "\n".join(
 	action="create a new {doctype}",
 	description=f"""Create a new sales record.
 
-Check with search_records first that the record does not already exist. The record is
-created as the current user, so it lands in their company and territory automatically —
-do not try to set a company.
+When the user asks for a record, create it. Only `*` fields must be supplied; ERPNext
+fills in the rest itself, so do not ask the user for values they did not offer. A
+duplicate is refused and the existing record named, so there is no need to search first.
 
-Fields you may set, by record type:
+The record is created as the current user, so it lands in their company and territory
+automatically — do not try to set a company.
+
+Fields you may set, `*` where required, by record type:
 {_CREATABLE}""",
 )
 def create_record(

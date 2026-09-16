@@ -22,7 +22,7 @@ from werkzeug.wrappers import Response
 
 from sales_ai import background, orchestrator
 from sales_ai.llm.agent import ToolFinished
-from sales_ai.llm.types import ToolCallBegin
+from sales_ai.llm.types import Notice, ToolCallBegin
 from sales_ai.orchestrator import RunStarted
 from sales_ai.playbook import engine
 
@@ -178,6 +178,8 @@ def history(session: str) -> dict[str, Any]:
 				}
 			)
 
+	pending = _pending_question(doc.name)
+
 	return {
 		"session": doc.name,
 		"title": doc.title,
@@ -185,7 +187,31 @@ def history(session: str) -> dict[str, Any]:
 		"reference_doctype": doc.reference_doctype,
 		"reference_name": doc.reference_name,
 		"messages": messages,
+		"run": pending["run"] if pending else None,
+		"question": pending["question"] if pending else None,
 	}
+
+
+def _pending_question(session: str) -> dict[str, Any] | None:
+	"""The approval this conversation is parked on, if it is parked on one.
+
+	A run pauses in one request and is answered in another, so the question has to be
+	findable again. Without this, closing the panel on an approval strands the run
+	forever: the card is gone, and nothing else in the product will ever ask again.
+
+	Only the asker's own runs, because `resume_stream` will not accept an answer from
+	anybody else — offering a card that cannot be answered is worse than offering none.
+	"""
+	paused = frappe.get_all(
+		"Sales AI Run",
+		filters={"session": session, "status": "Paused", "user": frappe.session.user},
+		fields=["name", "question"],
+		order_by="creation desc",
+		limit=1,
+	)
+	if not paused or not paused[0].question:
+		return None
+	return {"run": paused[0].name, "question": frappe.parse_json(paused[0].question)}
 
 
 @frappe.whitelist()
@@ -259,6 +285,8 @@ def _translate(event: Any) -> tuple[str, dict[str, Any]]:
 		return "tool_end", {"id": event.id, "name": event.name, "error": event.error}
 	if isinstance(event, RunStarted):
 		return "start", {"run": event.run, "session": event.session}
+	if isinstance(event, Notice):
+		return "notice", {"message": event.message}
 	return "unknown", {}
 
 

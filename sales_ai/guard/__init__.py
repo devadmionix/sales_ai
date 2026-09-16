@@ -99,12 +99,10 @@ def readable_doctypes() -> list[str]:
 
 
 def describe(doctype: str) -> str:
-	"""A one-paragraph summary of a DocType for the tool description."""
+	"""One line per DocType for the tool description: what it is, then what may be filtered
+	or sorted on. Kept terse because it is resent on every model call of every iteration."""
 	spec = _spec(doctype)
-	return (
-		f"{doctype}: {spec.purpose} "
-		f"Filter or sort on: {', '.join(spec.filter_fields)}."
-	)
+	return f"{doctype} — {spec.purpose} fields: {','.join(spec.filter_fields)}"
 
 
 # -- internals -----------------------------------------------------------------------

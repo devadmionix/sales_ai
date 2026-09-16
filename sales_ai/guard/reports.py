@@ -62,13 +62,18 @@ def report_names() -> list[str]:
 
 
 def describe(name: str) -> str:
-	"""A one-line summary of a report and its filters, for the tool description."""
+	"""One line per report for the tool description, in the compact notation the tool
+	explains: `*` required, `=` one of a fixed set, `:` a link to a DocType.
+
+	Spelling each filter's shape out in English — "(a Company)", "('Monthly' or
+	'Quarterly')" — cost more than every report name and purpose put together, and it is
+	resent on every model call of every iteration. The filter names and the choices are
+	kept whole, because those have to be right the first time; only the scaffolding around
+	them is dropped."""
 	spec = _spec(name)
-	required = [key for key, f in spec.filters.items() if f.required]
 	return (
-		f"{name}: {spec.purpose} "
-		f"Filters: {', '.join(f'{key} ({_shape(f)})' for key, f in spec.filters.items())}."
-		+ (f" Required: {', '.join(required)}." if required else "")
+		f"{name} — {spec.purpose} "
+		f"filters: {', '.join(_shape(key, item) for key, item in spec.filters.items())}"
 	)
 
 
@@ -82,16 +87,13 @@ def _spec(name: str) -> ReportSpec:
 	return spec
 
 
-def _shape(item: ReportFilter) -> str:
+def _shape(key: str, item: ReportFilter) -> str:
+	name = f"{key}*" if item.required else key
 	if item.kind == "choice":
-		return " or ".join(repr(option) for option in item.options)
+		return f"{name}={'|'.join(item.options)}"
 	if item.kind == "link":
-		return f"a {item.options[0]}"
-	if item.kind == "date":
-		return "YYYY-MM-DD"
-	if item.kind == "flag":
-		return "true or false"
-	return "a whole number"
+		return f"{name}:{item.options[0]}"
+	return name
 
 
 def _filters(spec: ReportSpec, name: str, given: dict[str, Any]) -> dict[str, Any]:

@@ -15,7 +15,14 @@ const question = ref(null);
 const busy = ref(false);
 const error = ref(null);
 const draft = ref("");
+const notice = ref(null);
 const recent = ref([]);
+// The in-flight stream, so it can be called off when the user leaves it behind. Held
+// outside `ref` because nothing renders it.
+let inflight = null;
+// What to run again if the last attempt failed. Null once it has succeeded, so the retry
+// button cannot resend something that already went through.
+const retryable = ref(null);
 const showRecent = ref(false);
 const reference = ref(routeReference());
 const scroller = ref(null);
@@ -52,8 +59,7 @@ async function send() {
 		payload.reference_name = reference.value.name;
 	}
 
-	const reply = beginReply();
-	await consume((on) => api.chat(payload, on), reply);
+	await consume((on, signal) => api.chat(payload, on, signal));
 }
 
 async function answer(text) {
@@ -63,8 +69,8 @@ async function answer(text) {
 		messages.value.push({ role: "user", content: text });
 	}
 
-	const reply = beginReply();
-	await consume((on) => api.answer(runName.value, { [pending.tool_call_id]: text }, on), reply);
+	const run = runName.value;
+	await consume((on, signal) => api.answer(run, { [pending.tool_call_id]: text }, on, signal));
 }
 
 function beginReply() {
@@ -74,21 +80,50 @@ function beginReply() {
 	return reply;
 }
 
-async function consume(start, reply) {
+async function consume(start) {
+	abort();
+	const controller = new AbortController();
+	inflight = controller;
+
+	const reply = beginReply();
 	busy.value = true;
 	error.value = null;
+	notice.value = null;
+	retryable.value = null;
+	let failed = null;
+
 	try {
-		await start((event, data) => handle(event, data, reply));
+		await start((event, data) => handle(event, data, reply), controller.signal);
 	} catch (e) {
-		error.value = e.message || __("The assistant stopped unexpectedly.");
+		// A stream the user themselves called off is not a failure to report.
+		if (e.name !== "AbortError") failed = e.message || __("The assistant stopped unexpectedly.");
 	} finally {
-		busy.value = false;
-		// A run that failed before saying anything would leave an empty bubble behind.
-		if (!reply.content && !reply.tools.length) {
-			messages.value.splice(messages.value.indexOf(reply), 1);
+		if (inflight === controller) {
+			inflight = null;
+			busy.value = false;
+			notice.value = null;
+			if (failed) error.value = failed;
+			// Nothing was said, so there is nothing to keep — and the attempt can simply be
+			// made again. Once the assistant has spoken, resending would say it all twice.
+			if (!reply.content && !reply.tools.length) {
+				messages.value.splice(messages.value.indexOf(reply), 1);
+				if (error.value) retryable.value = start;
+			}
+			scroll();
 		}
-		scroll();
 	}
+}
+
+function abort() {
+	if (inflight) {
+		inflight.abort();
+		inflight = null;
+	}
+}
+
+async function retry() {
+	const again = retryable.value;
+	if (again) await consume(again);
 }
 
 function handle(event, data, reply) {
@@ -106,6 +141,10 @@ function handle(event, data, reply) {
 			tool.done = true;
 			tool.error = data.error;
 		}
+	} else if (event === "notice") {
+		// Not the assistant speaking, so it stays out of the transcript — but a user who
+		// is told the provider is busy is not a user staring at a frozen panel.
+		notice.value = data.message;
 	} else if (event === "done") {
 		if (!reply.content && data.content) reply.content = data.content;
 		question.value = data.status === "paused" ? data.question : null;
@@ -117,11 +156,15 @@ function handle(event, data, reply) {
 // -- sessions ------------------------------------------------------------------------
 
 function newChat() {
+	abort();
 	session.value = null;
 	runName.value = null;
 	messages.value = [];
 	question.value = null;
 	error.value = null;
+	notice.value = null;
+	retryable.value = null;
+	busy.value = false;
 	showRecent.value = false;
 	focusComposer();
 }
@@ -132,12 +175,18 @@ async function toggleRecent() {
 }
 
 async function openSession(name) {
+	abort();
 	showRecent.value = false;
 	error.value = null;
+	notice.value = null;
+	retryable.value = null;
+	busy.value = false;
 	const past = await api.history(name);
 	session.value = past.session;
-	runName.value = null;
-	question.value = null;
+	// A conversation that was left on an approval is still waiting for it. Reopening has
+	// to put the card back, or the run can never be answered and never finishes.
+	runName.value = past.run || null;
+	question.value = past.question || null;
 	reference.value =
 		past.reference_doctype && past.reference_name
 			? { doctype: past.reference_doctype, name: past.reference_name }
@@ -229,14 +278,21 @@ defineExpose({ toggle });
 					{{ __("Ask about leads, opportunities, quotations or orders you can see.") }}
 				</div>
 				<ChatMessage v-for="(message, i) in messages" :key="i" :message="message" />
-				<div v-if="busy" class="sai-thinking">{{ __("Thinking") }}&hellip;</div>
+				<div v-if="busy" class="sai-thinking">
+					{{ notice || __("Thinking") + "…" }}
+				</div>
 				<ApprovalCard
 					v-if="question"
 					:question="question"
 					:busy="busy"
 					@reply="answer"
 				/>
-				<div v-if="error" class="sai-error">{{ error }}</div>
+				<div v-if="error" class="sai-error">
+					{{ error }}
+					<button v-if="retryable && !busy" class="sai-retry" @click="retry">
+						{{ __("Try again") }}
+					</button>
+				</div>
 			</div>
 
 			<footer class="sai-composer">

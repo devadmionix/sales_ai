@@ -45,6 +45,18 @@ class ToolCallBegin:
 	name: str
 
 
+@dataclass
+class Notice:
+	"""Something the user should know that is not part of the answer.
+
+	Kept separate from the text deltas because it is not the assistant speaking: it never
+	enters the transcript, so it cannot be mistaken later for something the model said.
+	A waiting user who is told why is not a user watching a frozen panel.
+	"""
+
+	message: str
+
+
 def empty_usage() -> dict[str, int]:
 	return dict.fromkeys(USAGE_KEYS, 0)
 
