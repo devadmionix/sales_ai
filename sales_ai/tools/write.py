@@ -22,7 +22,7 @@ from sales_ai.llm.tool import tool
 from sales_ai.tools import register
 from sales_ai.tools.read import SalesDocType
 
-WritableDocType = Literal["Contact", "Customer", "Lead", "Opportunity"]
+WritableDocType = Literal["Contact", "Customer", "Item", "Item Price", "Lead", "Opportunity"]
 
 # Keeps the enum the model sees and the allowlist the guard enforces in step.
 assert set(WritableDocType.__args__) == set(WRITE_SPECS), (

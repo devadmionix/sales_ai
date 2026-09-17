@@ -208,8 +208,67 @@ def convert_quotation_to_order(
 	)
 
 
+@tool(
+	writes=True,
+	risk="high",
+	action="add opening stock for {item_code}",
+	description="""Add opening stock for an item in a warehouse.
+
+Use this after creating a new item when the user provides an opening quantity.
+Creates a Stock Entry of type Material Receipt to record the stock.
+The item must be a stock-tracked item (is_stock_item = 1).""",
+)
+def add_opening_stock(
+	item_code: Annotated[str, "The item's code, e.g. 'AI-01'."],
+	qty: Annotated[float, "Quantity to add."],
+	warehouse: Annotated[str | None, "Target warehouse. Defaults to the company's default warehouse."] = None,
+	rate: Annotated[float | None, "Valuation rate per unit. Required for the stock entry."] = None,
+) -> dict[str, Any]:
+	import frappe
+	from frappe.utils import flt, nowdate
+
+	item = frappe.get_cached_doc("Item", item_code)
+	if not item.is_stock_item:
+		return {"error": f"{item_code} is not a stock-tracked item. No stock entry needed."}
+
+	if not warehouse:
+		company = frappe.defaults.get_user_default("Company")
+		warehouse = frappe.get_cached_value("Company", company, "default_warehouse")
+		if not warehouse:
+			return {"error": "No default warehouse found. Please specify a warehouse."}
+
+	se = frappe.new_doc("Stock Entry")
+	se.stock_entry_type = "Material Receipt"
+	se.posting_date = nowdate()
+	se.append("items", {
+		"item_code": item_code,
+		"qty": flt(qty),
+		"t_warehouse": warehouse,
+		"basic_rate": flt(rate) if rate else 0,
+	})
+	se.insert()
+	se.submit()
+
+	from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_action
+	record_action(
+		tool="add_opening_stock",
+		doctype="Stock Entry",
+		name=se.name,
+		action=f"Added {qty} of {item_code} to {warehouse}",
+	)
+
+	return {
+		"stock_entry": se.name,
+		"item_code": item_code,
+		"qty": flt(qty),
+		"warehouse": warehouse,
+		"status": "submitted",
+	}
+
+
 register(check_availability)
 register(price_items)
 register(draft_quotation)
 register(submit_quotation)
 register(convert_quotation_to_order)
+register(add_opening_stock)

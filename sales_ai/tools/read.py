@@ -22,6 +22,7 @@ SalesDocType = Literal[
 	"Contact",
 	"Customer",
 	"Item",
+	"Item Price",
 	"Lead",
 	"Opportunity",
 	"Quotation",

@@ -14,7 +14,11 @@ import * as api from "./api.js";
 // finished, so a miss falls back to a floating button rather than leaving no way in at all.
 // Read during setup rather than in `onMounted`: `make_sidebar()` runs before `app_ready` and
 // the panel is mounted on `app_ready`, so querying now avoids a frame of the fallback.
-const sidebar = document.querySelector(".body-sidebar .standard-items-sections");
+const sidebarEl = document.querySelector(".body-sidebar .standard-items-sections");
+// The sidebar element may exist in the DOM but be collapsed to ≤1 px (v16 desk with the
+// rail hidden). A Teleport into an invisible container hides the launcher with no fallback,
+// so treat a zero-width sidebar the same as a missing one.
+const sidebar = sidebarEl && sidebarEl.getBoundingClientRect().width > 1 ? sidebarEl : null;
 
 const open = ref(false);
 // Rolled up to its title bar, but still running. Distinct from closed: a reply streaming
@@ -465,7 +469,7 @@ function ask(text) {
 
 watch(open, (isOpen) => isOpen && focusComposer());
 
-defineExpose({ toggle });
+defineExpose({ toggle, open });
 </script>
 
 <template>

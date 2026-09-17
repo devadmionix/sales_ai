@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7C3AED"/>
+      <stop offset="100%" style="stop-color:#EC4899"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="22" fill="url(#bg)"/>
+  <!-- Upward trend line -->
+  <polyline points="20,68 38,55 52,60 68,38 80,30" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <!-- Arrow head on trend -->
+  <polyline points="74,28 80,30 78,36" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <!-- AI sparkle large -->
+  <path d="M72,58 L74,52 L76,58 L82,60 L76,62 L74,68 L72,62 L66,60 Z" fill="white" opacity="0.95"/>
+  <!-- AI sparkle small -->
+  <path d="M30,35 L31,32 L32,35 L35,36 L32,37 L31,40 L30,37 L27,36 Z" fill="white" opacity="0.8"/>
+</svg>

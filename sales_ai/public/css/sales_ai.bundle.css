@@ -925,3 +925,33 @@
 		--sai-width: 100vw;
 	}
 }
+
+/* "Ask AI" button shown on the home screen. */
+.sai-ask-btn {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	z-index: 1025;
+	display: inline-flex;
+	align-items: center;
+	padding: 10px 20px;
+	border: none;
+	border-radius: var(--border-radius-lg);
+	background: var(--primary);
+	color: white;
+	font-size: var(--text-base);
+	font-weight: 500;
+	box-shadow: var(--shadow-md);
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sai-ask-btn:hover {
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-lg);
+}
+
+.sai-ask-btn:active {
+	transform: translateY(0);
+}
+

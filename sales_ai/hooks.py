@@ -10,16 +10,17 @@ app_license = "mit"
 
 required_apps = ["erpnext"]
 
-# Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "sales_ai",
-# 		"logo": "/assets/sales_ai/logo.png",
-# 		"title": "Sales AI",
-# 		"route": "/sales_ai",
-# 		"has_permission": "sales_ai.api.permission.has_app_permission"
-# 	}
-# ]
+# Without this the app has no entry in the desk's app switcher, and its workspace — which
+# exists, is public and is not hidden — is reachable only by typing the URL. The route is
+# the workspace rather than a portal page: everything here is desk-side.
+add_to_apps_screen = [
+	{
+		"name": "sales_ai",
+		"logo": "/assets/sales_ai/images/sales-ai-logo.svg",
+		"title": "Sales AI",
+		"route": "/app/sales-ai",
+	}
+]
 
 # Includes in <head>
 # ------------------
