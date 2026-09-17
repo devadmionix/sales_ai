@@ -1,0 +1,27 @@
+{
+ "content": null,
+ "creation": "2026-09-17 13:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-09-17 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sales AI",
+ "name": "sales-dashboard",
+ "owner": "Administrator",
+ "page_name": "sales-dashboard",
+ "roles": [
+  {
+   "role": "Sales User"
+  },
+  {
+   "role": "Sales Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "standard": "Yes",
+ "system_page": 0,
+ "title": "Sales Dashboard"
+}

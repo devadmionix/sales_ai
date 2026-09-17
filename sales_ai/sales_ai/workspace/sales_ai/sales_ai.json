@@ -1,7 +1,7 @@
 {
  "app": "sales_ai",
  "charts": [],
- "content": "[{\"id\":\"saiHeadWatch\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>This Week</b></span>\",\"col\":12}},{\"id\":\"saiCardRuns0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Runs This Week\",\"col\":3}},{\"id\":\"saiCardWait0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Awaiting Approval\",\"col\":3}},{\"id\":\"saiCardChng0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Changes This Week\",\"col\":3}},{\"id\":\"saiCardFail0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Failed Runs\",\"col\":3}},{\"id\":\"saiHeadShort\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Review</b></span>\",\"col\":12}},{\"id\":\"saiScUnsup00\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Unsupervised Actions\",\"col\":3}},{\"id\":\"saiScRun0000\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales AI Run\",\"col\":3}},{\"id\":\"saiScAction0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales AI Action Log\",\"col\":3}},{\"id\":\"saiScEval000\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales AI Eval Run\",\"col\":3}},{\"id\":\"saiHeadMan00\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Manage</b></span>\",\"col\":12}},{\"id\":\"saiCdActivi0\",\"type\":\"card\",\"data\":{\"card_name\":\"Activity\",\"col\":3}},{\"id\":\"saiCdGovern0\",\"type\":\"card\",\"data\":{\"card_name\":\"Governance\",\"col\":3}},{\"id\":\"saiCdAutoma0\",\"type\":\"card\",\"data\":{\"card_name\":\"Automation\",\"col\":3}},{\"id\":\"saiCdConfig0\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":3}}]",
+ "content": "[{\"id\":\"saiHeadDash0\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Sales Performance</b></span>\",\"col\":12}},{\"id\":\"saiScDash000\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Dashboard\",\"col\":4}},{\"id\":\"saiHeadWatch\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>This Week</b></span>\",\"col\":12}},{\"id\":\"saiCardRuns0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Runs This Week\",\"col\":3}},{\"id\":\"saiCardWait0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Awaiting Approval\",\"col\":3}},{\"id\":\"saiCardChng0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Changes This Week\",\"col\":3}},{\"id\":\"saiCardFail0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales AI Failed Runs\",\"col\":3}},{\"id\":\"saiHeadShort\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Review</b></span>\",\"col\":12}},{\"id\":\"saiScUnsup00\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Unsupervised Actions\",\"col\":3}},{\"id\":\"saiScRun0000\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales AI Run\",\"col\":3}},{\"id\":\"saiScAction0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales AI Action Log\",\"col\":3}},{\"id\":\"saiScEval000\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales AI Eval Run\",\"col\":3}},{\"id\":\"saiHeadMan00\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Manage</b></span>\",\"col\":12}},{\"id\":\"saiCdActivi0\",\"type\":\"card\",\"data\":{\"card_name\":\"Activity\",\"col\":3}},{\"id\":\"saiCdGovern0\",\"type\":\"card\",\"data\":{\"card_name\":\"Governance\",\"col\":3}},{\"id\":\"saiCdAutoma0\",\"type\":\"card\",\"data\":{\"card_name\":\"Automation\",\"col\":3}},{\"id\":\"saiCdConfig0\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":3}}]",
  "creation": "2026-09-17 12:23:06.560756",
  "custom_blocks": [],
  "docstatus": 0,
@@ -221,6 +221,12 @@
  "roles": [],
  "sequence_id": 1.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "label": "Sales Dashboard",
+   "link_to": "sales-dashboard",
+   "type": "Page"
+  },
   {
    "color": "Red",
    "doc_view": "",

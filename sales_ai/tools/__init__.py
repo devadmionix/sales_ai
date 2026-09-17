@@ -30,6 +30,7 @@ MODULES: tuple[str, ...] = (
 	"sales_ai.tools.leads",
 	"sales_ai.tools.followups",
 	"sales_ai.tools.email",
+	"sales_ai.tools.advisor",
 	# For the customer-facing agent only. Registering a tool makes it *nameable* by an agent
 	# profile, not available to every agent — each profile lists the tools it may call.
 	"sales_ai.tools.portal",

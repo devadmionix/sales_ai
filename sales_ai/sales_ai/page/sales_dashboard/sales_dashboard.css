@@ -1,0 +1,113 @@
+.sai-dashboard {
+	padding: 0 15px;
+}
+
+.sai-kpi-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 16px;
+	margin-bottom: 24px;
+}
+
+.sai-kpi-card {
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-lg);
+	padding: 20px;
+	transition: box-shadow 0.15s ease;
+}
+
+.sai-kpi-card:hover {
+	box-shadow: var(--shadow-sm);
+}
+
+.sai-kpi-card[data-drill-doctype]:hover {
+	box-shadow: var(--shadow-md);
+	border-color: var(--primary);
+}
+
+.sai-kpi-title {
+	font-size: var(--text-sm);
+	font-weight: var(--weight-medium);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin-bottom: 8px;
+}
+
+.sai-kpi-value {
+	font-size: 24px;
+	font-weight: var(--weight-bold);
+	margin-bottom: 4px;
+}
+
+.sai-kpi-subtitle {
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+}
+
+.sai-section {
+	margin-bottom: 24px;
+}
+
+.sai-section-title {
+	font-size: var(--text-lg);
+	font-weight: var(--weight-semibold);
+	margin-bottom: 12px;
+	color: var(--heading-color);
+}
+
+.sai-table {
+	background: var(--card-bg);
+	border-radius: var(--border-radius-lg);
+	border: 1px solid var(--border-color);
+	overflow: hidden;
+}
+
+.sai-table thead th {
+	background: var(--subtle-fg);
+	border-bottom: 1px solid var(--border-color);
+	font-size: var(--text-sm);
+	font-weight: var(--weight-medium);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+	padding: 10px 16px;
+}
+
+.sai-table tbody td {
+	padding: 10px 16px;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.sai-table-row {
+	cursor: pointer;
+}
+
+.sai-table-row:hover {
+	background: var(--subtle-fg);
+}
+
+.sai-chart {
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-lg);
+	padding: 16px;
+}
+
+.sai-dash-loading {
+	padding: 60px;
+	text-align: center;
+}
+
+@media (max-width: 768px) {
+	.sai-kpi-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+@media (max-width: 480px) {
+	.sai-kpi-grid {
+		grid-template-columns: 1fr;
+	}
+}
