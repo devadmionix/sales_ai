@@ -154,9 +154,200 @@ def detect_anomalies(
 	return _detect(months_back=months_back)
 
 
+@tool(
+	writes=False,
+	risk="none",
+	description="""Suggest products a customer hasn't bought but similar customers have (cross-sell).
+
+Looks at what this customer has purchased, finds other customers who bought the same things,
+and recommends products those peers also bought. Only suggests active (non-disabled) items.
+
+Each suggestion includes how many similar customers bought it and the total revenue it generated
+across those peers — so you can explain *why* the recommendation is made.
+
+Returns nothing if the customer has no purchase history (can't recommend without evidence).""",
+)
+def cross_sell(
+	customer: Annotated[str, "Customer ID (e.g. 'CUST-00001')."],
+	limit: Annotated[int, "How many suggestions to return. Default 5."] = 5,
+) -> dict[str, Any]:
+	from sales_ai.intelligence.products import cross_sell as _cross_sell
+	return _cross_sell(customer=customer, limit=limit)
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""Suggest higher-value alternatives for products a customer currently buys (upsell).
+
+For each product the customer has ordered, finds higher-priced items in the same item group
+that other customers have bought. Shows the price uplift percentage and how many other
+customers chose the upgrade.
+
+Use this when someone asks about upsell opportunities or how to increase order value.""",
+)
+def upsell(
+	customer: Annotated[str, "Customer ID (e.g. 'CUST-00001')."],
+	limit: Annotated[int, "How many suggestions to return. Default 5."] = 5,
+) -> dict[str, Any]:
+	from sales_ai.intelligence.products import upsell as _upsell
+	return _upsell(customer=customer, limit=limit)
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""Find customers whose typical reorder interval has elapsed.
+
+Looks at customers with 3+ orders, calculates their average time between orders, and flags
+those who are due or overdue for a reorder. Each customer shows their average interval,
+days since last order, and urgency (approaching / due / overdue).
+
+Use this for repeat purchase analysis, reorder reminders, or finding customers who might
+be slipping away.""",
+)
+def repeat_purchase_due(
+	limit: Annotated[int, "How many customers to return. Default 20."] = 20,
+) -> dict[str, Any]:
+	from sales_ai.intelligence.products import repeat_purchase_due as _repeat
+	return _repeat(limit=limit)
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""Rank products by revenue, volume, growth, and customer reach.
+
+Returns each product's total revenue, revenue share %, quantity sold, number of distinct
+customers, and growth trend (comparing recent half vs older half of the period).
+
+Use this for product performance analysis, identifying star products, declining products,
+or answering "what are our best/worst selling products?".""",
+)
+def product_performance(
+	period_months: Annotated[int, "How many months of history. Default 6."] = 6,
+	limit: Annotated[int, "How many products to return. Default 20."] = 20,
+) -> dict[str, Any]:
+	from sales_ai.intelligence.products import product_performance as _perf
+	return _perf(period_months=period_months, limit=limit)
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""Calculate the weighted pipeline: each deal's value × its probability.
+
+Raw pipeline totals are misleading — a $100k deal at 10% probability is worth $10k, not $100k.
+This tool multiplies each open opportunity's amount by its probability to give a realistic
+expected revenue figure.
+
+Returns total raw pipeline, total weighted pipeline, breakdown by sales stage, and individual
+deals with their weighted values. Deals with missing probability default to 50%.
+
+Also flags overdue deals (expected_closing has passed). Use this for any pipeline analysis,
+revenue forecasting from pipeline, or "how much pipeline do we really have?".""",
+)
+def weighted_pipeline() -> dict[str, Any]:
+	from sales_ai.intelligence.pipeline import weighted_pipeline as _wp
+	return _wp()
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""Measure how long deals take from creation to Won/Converted.
+
+Calculates the median and average number of days between opportunity creation and close
+for all won opportunities in the period. Shows individual deals with their cycle time.
+
+Use this when someone asks about sales cycle length, how long deals take, deal velocity,
+or time to close.""",
+)
+def sales_cycle(
+	months_back: Annotated[int, "How many months of history. Default 12."] = 12,
+) -> dict[str, Any]:
+	from sales_ai.intelligence.pipeline import sales_cycle as _sc
+	return _sc(months_back=months_back)
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""Generate a morning sales brief: everything that needs attention today.
+
+Returns a prioritised summary of:
+- Follow-ups due today or overdue
+- Quotations expiring in the next 7 days
+- Deals expected to close this week
+- Overdue opportunities (expected close date has passed)
+- New leads from the last 3 days
+- Month-to-date revenue and pipeline snapshot
+
+This is the tool to call when someone says "what's on my plate?", "morning review",
+"what should I focus on today?", or "give me my daily brief".""",
+)
+def sales_day_brief() -> dict[str, Any]:
+	from sales_ai.intelligence.brief import sales_day_brief as _brief
+	return _brief()
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""Generate a manager's overview: team performance, pipeline health, and risks.
+
+Returns:
+- Overall KPIs: revenue, orders, AOV, conversion rate
+- Performance by sales person (revenue and order count)
+- Pipeline by sales person
+- Stale deals (no activity in 14+ days)
+- At-risk customers (high churn scores)
+
+Use this when a manager asks for a team review, performance summary, "how is the team doing?",
+or "weekly/monthly manager brief".""",
+)
+def manager_brief(
+	period_months: Annotated[int, "How many months to cover. Default 1 (current month)."] = 1,
+) -> dict[str, Any]:
+	from sales_ai.intelligence.brief import manager_brief as _mgr
+	return _mgr(period_months=period_months)
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""Compare actual revenue against sales target for a period.
+
+Shows: actual revenue, target, variance, achievement %, and whether the business is
+ahead, on track, or behind. Also shows daily run rate and projected end-of-period revenue.
+
+Identifies top customers and products driving the actual revenue, so you can explain
+*why* the target was missed or exceeded.
+
+Use period="month" for this month, "quarter" for this quarter, "year" for this year.
+
+Use this when someone asks "are we hitting target?", "why did we miss target?",
+"how are we tracking?", or "target vs actual".""",
+)
+def target_vs_actual(
+	period: Annotated[str, "'month', 'quarter', or 'year'. Default 'month'."] = "month",
+) -> dict[str, Any]:
+	from sales_ai.intelligence.targets import target_vs_actual as _tva
+	return _tva(period=period)
+
+
 register(forecast_revenue)
 register(score_leads)
 register(get_recommendations)
 register(segment_customers)
 register(compare_periods)
 register(detect_anomalies)
+register(cross_sell)
+register(upsell)
+register(repeat_purchase_due)
+register(product_performance)
+register(weighted_pipeline)
+register(sales_cycle)
+register(sales_day_brief)
+register(manager_brief)
+register(target_vs_actual)
