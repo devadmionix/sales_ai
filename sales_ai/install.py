@@ -33,7 +33,7 @@ def _ensure_profile():
 
     # Point settings at it if nothing else is configured.
     settings = frappe.get_single("Sales AI Settings")
-    if not settings.default_agent_profile:
+    if not settings.default_agent_profile and frappe.db.exists("Sales AI Agent Profile", PROFILE_NAME):
         settings.default_agent_profile = PROFILE_NAME
         settings.save(ignore_permissions=True)
 
@@ -41,6 +41,12 @@ def _ensure_profile():
 
 
 def _create_profile(all_tools: list[str]) -> None:
+    # Model is mandatory on the profile; nothing to point it at yet on a
+    # fresh site, so skip and let a later migrate create it once one exists.
+    model = frappe.db.get_value("Sales AI Model", {"enabled": 1}, "name")
+    if not model:
+        return
+
     profile = frappe.new_doc("Sales AI Agent Profile")
     profile.update(
         {
@@ -49,12 +55,9 @@ def _create_profile(all_tools: list[str]) -> None:
             "enabled": 1,
             "selectable": 1,
             "max_iterations": 8,
+            "model": model,
         }
     )
-    # Use whichever model exists and is enabled.
-    model = frappe.db.get_value("Sales AI Model", {"enabled": 1}, "name")
-    if model:
-        profile.model = model
 
     for tool_name in all_tools:
         profile.append("tools", {"tool": tool_name, "enabled": 1})
