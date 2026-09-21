@@ -93,7 +93,7 @@ extend_bootinfo = "sales_ai.boot.extend_bootinfo"
 # ------------
 
 # before_install = "sales_ai.install.before_install"
-# after_install = "sales_ai.install.after_install"
+after_install = "sales_ai.install.after_install"
 
 # Uninstallation
 # ------------
@@ -120,6 +120,8 @@ extend_bootinfo = "sales_ai.boot.extend_bootinfo"
 # Build
 # ------------------
 # To hook into the build process
+
+after_migrate = "sales_ai.install.after_migrate"
 
 # after_build = "sales_ai.build.after_build"
 

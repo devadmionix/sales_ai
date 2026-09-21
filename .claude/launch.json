@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frappe-dev",
+      "runtimeExecutable": "bench",
+      "runtimeArgs": ["serve", "--port", "8005"],
+      "port": 8005,
+      "autoPort": false
+    }
+  ]
+}
