@@ -22,6 +22,7 @@ from frappe.utils import sbool
 from werkzeug.wrappers import Response
 
 from sales_ai import background, orchestrator
+from sales_ai.guard.permissions import check_ai_permission, is_customer_user
 from sales_ai.llm import model as llm_model
 from sales_ai.llm.agent import ToolFinished
 from sales_ai.llm.types import Notice, ToolCallBegin
@@ -174,6 +175,20 @@ def agents() -> dict[str, Any]:
 	# Read straight off the tools' own enum rather than listed again here, so a record the
 	# agent cannot open is never offered as something to ask about.
 	return {"default": default, "agents": offered, "subjects": sorted(read.SalesDocType.__args__)}
+
+
+@frappe.whitelist()
+def my_permissions() -> dict[str, Any]:
+	"""What the current user may do through the assistant, for diagnostics.
+
+	Returns the role, the DocTypes they can reach, and the allowed actions on each.
+	This is what `check_ai_permission` would say about every DocType, pre-computed
+	so a System Manager can see it all at once.
+	"""
+	guard_entry()
+	from sales_ai.guard.permissions import get_user_permissions_summary
+
+	return get_user_permissions_summary()
 
 
 @frappe.whitelist(methods=["POST"])

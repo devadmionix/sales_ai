@@ -23,11 +23,17 @@ import frappe
 from frappe import _
 
 from sales_ai.guard import GuardError, deny, may_change, read_document
+from sales_ai.guard.permissions import check_ai_permission
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_action
 
 
 def convert_to_customer(name: str, *, tool: str) -> dict[str, Any]:
 	"""Turn a lead into a customer account, or point at the one that already exists."""
+	# RBAC pre-check: need write on Lead and create on Customer
+	result = check_ai_permission(doctype="Customer", action="create")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	lead = may_change("Lead", name, "write", "Convert")
 
 	if lead.customer:
@@ -76,6 +82,11 @@ def convert_to_opportunity(name: str, *, tool: str) -> dict[str, Any]:
 	can legitimately produce two opportunities — two deals, two budgets, two decisions —
 	and the open ones are reported so the model can say so rather than guessing.
 	"""
+	# RBAC pre-check: need write on Lead and create on Opportunity
+	result = check_ai_permission(doctype="Opportunity", action="create")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	lead = may_change("Lead", name, "write", "Convert")
 
 	if not frappe.has_permission("Opportunity", "create"):

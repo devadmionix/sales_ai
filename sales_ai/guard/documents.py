@@ -33,6 +33,7 @@ from frappe import _
 from frappe.utils import flt
 
 from sales_ai.guard import GuardError, may_change
+from sales_ai.guard.permissions import check_ai_permission
 from sales_ai.guard.quotations import summarise
 from sales_ai.guard.specs import SPECS
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_action
@@ -54,6 +55,12 @@ MAX_REASON = 500
 def submit_document(doctype: str, name: str, *, tool: str) -> dict[str, Any]:
 	"""Submit a draft, turning it from a working paper into a commitment."""
 	_submittable(doctype)
+
+	# RBAC pre-check: does the chatbot's role matrix allow submit on this DocType?
+	result = check_ai_permission(doctype=doctype, document_name=name, action="submit")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	doc = may_change(doctype, name, "submit", "Submit")
 
 	if doc.docstatus != 0:
@@ -88,6 +95,11 @@ def cancel_document(doctype: str, name: str, reason: str, *, tool: str) -> dict[
 	text = (reason or "").strip()
 	if not text:
 		raise GuardError(f"Cancelling a {doctype} needs a reason. Why is it being cancelled?")
+
+	# RBAC pre-check: does the chatbot's role matrix allow cancel on this DocType?
+	result = check_ai_permission(doctype=doctype, document_name=name, action="cancel")
+	if not result.allowed:
+		raise GuardError(result.reason)
 
 	doc = may_change(doctype, name, "cancel", "Cancel")
 

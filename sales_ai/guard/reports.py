@@ -21,6 +21,7 @@ from typing import Any
 from frappe.utils import cint, cstr, getdate
 
 from sales_ai.guard import GuardError, _may_read, _plain_text
+from sales_ai.guard.permissions import check_ai_permission
 from sales_ai.guard.specs import REPORTS, ReportFilter, ReportSpec
 
 # A report is written for a screen somebody scrolls. The model gets the top of it and is
@@ -30,6 +31,13 @@ MAX_ROWS = 50
 
 
 def run_report(name: str, filters: dict[str, Any] | None = None) -> dict[str, Any]:
+	# RBAC pre-check: reports require the "report" action permission.
+	# We check against a generic doctype since reports span multiple DocTypes.
+	# The actual report-level permission is still checked by frappe.desk.query_report.run.
+	result = check_ai_permission(action="report")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	spec = _spec(name)
 	checked = _filters(spec, name, filters or {})
 

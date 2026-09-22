@@ -27,6 +27,7 @@ from frappe.desk.form import assign_to
 from frappe.utils import escape_html
 
 from sales_ai.guard import GuardError, deny, may_change, read_document
+from sales_ai.guard.permissions import check_ai_permission
 from sales_ai.guard.specs import SPECS, WRITE_SPECS, WriteSpec
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_action
 
@@ -35,6 +36,12 @@ MAX_NOTE = 2000
 
 def create_record(doctype: str, values: dict[str, Any], *, tool: str) -> dict[str, Any]:
 	spec = _spec(doctype)
+
+	# RBAC pre-check: does the chatbot's role matrix allow creating this DocType?
+	result = check_ai_permission(doctype=doctype, action="create")
+	if not result.allowed:
+		raise deny("Create", doctype, None, result.reason)
+
 	clean = _checked(spec, values, creating=True)
 
 	missing = [f for f in spec.required if not clean.get(f)]

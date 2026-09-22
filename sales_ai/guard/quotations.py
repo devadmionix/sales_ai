@@ -30,6 +30,7 @@ from frappe import _
 from frappe.utils import flt, getdate
 
 from sales_ai.guard import GuardError, _may_read
+from sales_ai.guard.permissions import check_ai_permission
 from sales_ai.guard.pricing import LINE_FIELDS, TOTAL_FIELDS, draft
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_action
 
@@ -50,6 +51,11 @@ def draft_quotation(
 	conversation and the figure on the document a human is asked to approve have to be the
 	same figure, and the only way to be sure of that is for there to be one of them.
 	"""
+	# RBAC pre-check: does the chatbot's role matrix allow creating Quotations?
+	result = check_ai_permission(doctype="Quotation", action="create")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	frappe.has_permission("Quotation", "create", throw=True)
 
 	quotation = draft(lines, customer=customer, company=company, price_list=price_list, date=date)
@@ -81,6 +87,11 @@ def draft_quotation(
 
 def submit_quotation(name: str, *, tool: str) -> dict[str, Any]:
 	"""Make a draft Quotation the company's official position on price."""
+	# RBAC pre-check
+	result = check_ai_permission(doctype="Quotation", document_name=name, action="submit")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	quotation = _quotation(name, "submit")
 	if quotation.docstatus != 0:
 		raise GuardError(
@@ -103,6 +114,11 @@ def submit_quotation(name: str, *, tool: str) -> dict[str, Any]:
 
 def convert_to_sales_order(name: str, *, delivery_date: str, tool: str) -> dict[str, Any]:
 	"""Map a submitted Quotation onto a Sales Order, and leave that order in draft."""
+	# RBAC pre-check: need read on Quotation and create on Sales Order
+	result = check_ai_permission(doctype="Sales Order", action="create")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	quotation = _quotation(name, "read")
 	if quotation.docstatus != 1:
 		raise GuardError(

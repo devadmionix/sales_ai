@@ -11,6 +11,11 @@ Reads go through `frappe.get_list` / `check_permission` rather than SQL, so role
 permissions and User Permission records (which is how ERPNext scopes company and
 territory) apply exactly as they do in the desk UI. The agent can never see more than the
 person talking to it can see.
+
+Role-based access is enforced by the central permission service in
+``sales_ai.guard.permissions``. Every read and write entry point in this module calls
+``check_ai_permission`` first, which applies the chatbot's own RBAC matrix *before*
+ERPNext's native checks run. The matrix can only narrow access, never widen it.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ import frappe
 from frappe.utils import strip_html_tags
 from pydantic import BaseModel, Field
 
+from sales_ai.guard.permissions import check_ai_permission
 from sales_ai.guard.specs import SPECS, ReadSpec
 from sales_ai.llm.tool import ToolError
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_denial
@@ -95,6 +101,12 @@ def read_list(
 	limit: int = DEFAULT_LIMIT,
 ) -> dict[str, Any]:
 	spec = _spec(doctype)
+
+	# RBAC pre-check: does this user's role allow reading this DocType at all?
+	result = check_ai_permission(doctype=doctype, action="read")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	frappe.has_permission(doctype, "read", throw=True)
 
 	rows = frappe.get_list(
@@ -115,6 +127,14 @@ def read_list(
 
 def read_document(doctype: str, name: str) -> dict[str, Any]:
 	spec = _spec(doctype)
+
+	# RBAC pre-check: does this user's role allow reading this DocType?
+	# Deliberately no document_name here — the document-level check belongs to _may_read
+	# below, which conflates "no access" and "does not exist" on purpose.
+	result = check_ai_permission(doctype=doctype, action="read")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	# Ask before fetching, so a name the user may not see and a name that does not exist
 	# fail the same way. Left to `get_doc`, the first raises PermissionError and the second
 	# DoesNotExistError, and the difference is the answer to a question they cannot ask.
@@ -245,6 +265,14 @@ def may_change(doctype: str, name: str, ptype: str, action: str):
 	path in the app has to answer this question the same way. Two copies would eventually
 	disagree, and the disagreement would be the leak.
 	"""
+	# RBAC pre-check: does the chatbot's role matrix allow this action on this DocType?
+	# No document_name — the existence/access check below intentionally hides whether the
+	# record is real or just invisible, and a document-level denial from the RBAC layer
+	# would leak that distinction.
+	result = check_ai_permission(doctype=doctype, action=ptype)
+	if not result.allowed:
+		raise deny(action, doctype, name, result.reason)
+
 	if not frappe.db.exists(doctype, name) or not frappe.has_permission(doctype, "read", doc=name):
 		raise deny(action, doctype, name, NO_SUCH_RECORD.format(doctype=doctype, name=name))
 

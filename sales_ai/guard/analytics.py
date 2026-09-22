@@ -21,6 +21,7 @@ from typing import Any, Literal
 import frappe
 
 from sales_ai.guard import MAX_LIMIT, Filter, GuardError, _condition
+from sales_ai.guard.permissions import check_ai_permission
 from sales_ai.guard.specs import SPECS, AggregateSpec
 
 DEFAULT_GROUPS = 20
@@ -47,6 +48,12 @@ def aggregate(
 ) -> dict[str, Any]:
 	spec = _spec(doctype)
 	base = spec.parent or doctype
+
+	# RBAC pre-check: does the chatbot's role matrix allow reading this DocType?
+	result = check_ai_permission(doctype=base, action="read")
+	if not result.allowed:
+		raise GuardError(result.reason)
+
 	frappe.has_permission(base, "read", throw=True)
 
 	selected = _measures(spec, doctype, measures)
