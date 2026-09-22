@@ -26,7 +26,7 @@ import frappe
 from frappe.utils import strip_html_tags
 from pydantic import BaseModel, Field
 
-from sales_ai.guard.permissions import check_ai_permission
+from sales_ai.guard.permissions import check_ai_permission, get_user_scope
 from sales_ai.guard.specs import SPECS, ReadSpec
 from sales_ai.llm.tool import ToolError
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_denial
@@ -109,10 +109,17 @@ def read_list(
 
 	frappe.has_permission(doctype, "read", throw=True)
 
+	user_filters = [_condition(spec, f) for f in filters or []]
+
+	# Scope enforcement: when the RBAC matrix says "own" and no User Permissions
+	# already restrict this DocType, only return records created by the current user.
+	if _scope_blocks_list(doctype):
+		user_filters.append(["owner", "=", frappe.session.user])
+
 	rows = frappe.get_list(
 		doctype,
 		fields=list(spec.list_fields),
-		filters=[_condition(spec, f) for f in filters or []],
+		filters=user_filters,
 		or_filters=_search(spec, query),
 		order_by=_order_by(spec, order_by),
 		limit_page_length=max(1, min(int(limit or DEFAULT_LIMIT), MAX_LIMIT)),
@@ -143,6 +150,10 @@ def read_document(doctype: str, name: str) -> dict[str, Any]:
 	# Checks the role permission and the User Permissions attached to this record.
 	doc.check_permission("read")
 
+	# Note: scope enforcement (owner filter) is applied on list queries only
+	# (read_list, aggregate). Single-record access is governed by ERPNext's
+	# check_permission above, which respects User Permissions and ownership.
+
 	record = _clean(spec, {fieldname: doc.get(fieldname) for fieldname in spec.detail_fields})
 	for table, fields in spec.children.items():
 		rows = [_clean(spec, {f: row.get(f) for f in fields}) for row in doc.get(table) or []]
@@ -160,6 +171,57 @@ def describe(doctype: str) -> str:
 	or sorted on. Kept terse because it is resent on every model call of every iteration."""
 	spec = _spec(doctype)
 	return f"{doctype} — {spec.purpose} fields: {','.join(spec.filter_fields)}"
+
+
+# -- scope enforcement ---------------------------------------------------------------
+
+
+def _has_user_permissions(doctype: str) -> bool:
+	"""Whether ERPNext User Permissions already restrict the current user for this DocType.
+
+	If User Permissions exist (e.g. the user is restricted to specific Customers or
+	Territories), ERPNext's ``get_list`` / ``check_permission`` already applies them.
+	In that case we rely on ERPNext's restriction and don't add an ``owner`` filter —
+	the User Permissions are the admin's chosen scoping mechanism.
+
+	When no User Permissions exist, the ``owner`` filter is the only thing preventing
+	Sales User A from seeing Sales User B's records.
+	"""
+	from frappe.permissions import get_user_permissions
+
+	user_perms = get_user_permissions(frappe.session.user)
+	# ERPNext restricts records when there's a User Permission for ANY linked DocType.
+	# For example, a User Permission on Customer restricts Quotations too.
+	# We check if the user has any User Permissions at all for sales-relevant DocTypes.
+	if not user_perms:
+		return False
+
+	# Check if any User Permission applies to this DocType or its linked DocTypes.
+	meta = frappe.get_meta(doctype)
+	linked_doctypes = {doctype}
+	for field in meta.get_link_fields():
+		linked_doctypes.add(field.options)
+
+	return bool(linked_doctypes & set(user_perms.keys()))
+
+
+def _scope_blocks_list(doctype: str) -> bool:
+	"""Whether to add an ``owner`` filter to list queries for this DocType."""
+	scope = get_user_scope(doctype=doctype)
+	if scope != "own":
+		return False
+	return not _has_user_permissions(doctype)
+
+
+def _scope_blocks(doctype: str, doc_owner: str) -> bool:
+	"""Whether the scope prevents the current user from accessing a specific record."""
+	scope = get_user_scope(doctype=doctype)
+	if scope != "own":
+		return False
+	if _has_user_permissions(doctype):
+		# ERPNext's check_permission already enforced access.
+		return False
+	return doc_owner != frappe.session.user
 
 
 # -- internals -----------------------------------------------------------------------
@@ -275,6 +337,9 @@ def may_change(doctype: str, name: str, ptype: str, action: str):
 
 	if not frappe.db.exists(doctype, name) or not frappe.has_permission(doctype, "read", doc=name):
 		raise deny(action, doctype, name, NO_SUCH_RECORD.format(doctype=doctype, name=name))
+
+	# Note: scope enforcement (owner filter) is applied on list queries only.
+	# Single-record writes are governed by ERPNext's check_permission above.
 
 	if not frappe.has_permission(doctype, ptype, doc=name):
 		raise deny(action, doctype, name, f"You cannot change the {doctype} {name!r}.")

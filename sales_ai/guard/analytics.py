@@ -21,7 +21,7 @@ from typing import Any, Literal
 import frappe
 
 from sales_ai.guard import MAX_LIMIT, Filter, GuardError, _condition
-from sales_ai.guard.permissions import check_ai_permission
+from sales_ai.guard.permissions import check_ai_permission, get_user_scope
 from sales_ai.guard.specs import SPECS, AggregateSpec
 
 DEFAULT_GROUPS = 20
@@ -62,6 +62,12 @@ def aggregate(
 
 	conditions = _filters(spec, doctype, filters)
 	conditions += _date_range(spec, doctype, date_field, date_from, date_to)
+
+	# Scope enforcement: "own" restricts analytics to the user's own records
+	# when User Permissions aren't already restricting this DocType.
+	from sales_ai.guard import _scope_blocks_list
+	if _scope_blocks_list(base):
+		conditions.append([base + ".owner" if spec.parent else "owner", "=", frappe.session.user])
 
 	rows = frappe.get_list(
 		doctype,
