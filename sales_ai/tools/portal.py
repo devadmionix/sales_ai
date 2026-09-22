@@ -58,5 +58,42 @@ def my_account() -> dict[str, Any]:
 	return {"set_up": bool(name), "name": name}
 
 
+PortalDocType = Literal["Quotation", "Sales Order", "Sales Invoice", "Customer"]
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""List your own sales documents: quotations, orders, or invoices.
+
+Only shows records linked to your customer account. If you are not linked to a customer
+yet, it will tell you. Use my_document to get the full detail of a single record.""",
+)
+def my_documents(
+	doctype: Annotated[PortalDocType, "Type of record to list."],
+	limit: Annotated[int, "How many records to return, at most 50."] = 20,
+) -> dict[str, Any]:
+	from sales_ai.guard.portal_reads import portal_read_list
+	return portal_read_list(doctype, limit=limit)
+
+
+@tool(
+	writes=False,
+	risk="none",
+	description="""Read one of your own documents in detail, including line items.
+
+Use this after my_documents has given you the record's name, or when you already
+know the record ID. Only your own records are accessible.""",
+)
+def my_document(
+	doctype: Annotated[PortalDocType, "Type of record to read."],
+	name: Annotated[str, "The record's ID, e.g. 'SAL-ORD-2026-00014'."],
+) -> dict[str, Any]:
+	from sales_ai.guard.portal_reads import portal_read_document
+	return portal_read_document(doctype, name)
+
+
 register(register_customer)
 register(my_account)
+register(my_documents)
+register(my_document)

@@ -857,8 +857,9 @@ ROLE_TOOL_ACCESS: dict[str, frozenset[str]] = {
         | _SUBMIT_CANCEL | _MANAGER_TOOLS
     ),
 
-    # Customer (portal): only self-service tools
-    "Customer": _PORTAL_TOOLS | _READ_TOOLS,
+    # Customer (portal): self-service + portal-specific read tools only.
+    # No _READ_TOOLS — those use frappe.has_permission which portal users lack.
+    "Customer": _PORTAL_TOOLS | frozenset({"my_documents", "my_document"}),
 }
 
 
