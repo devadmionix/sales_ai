@@ -459,6 +459,23 @@ _ALL_MATRIX_DOCTYPES: frozenset[str] = frozenset(
     dt for role_map in ROLE_PERMISSIONS.values() for dt in role_map
 )
 
+
+def _is_managed_doctype(doctype: str) -> bool:
+    """Whether this DocType is one the RBAC matrix has an opinion about.
+
+    Checks the hard-coded set first, then falls back to the database for
+    DocTypes added via Sales AI Permission Rule.
+    """
+    if doctype in _ALL_MATRIX_DOCTYPES:
+        return True
+    try:
+        return bool(frappe.db.exists(
+            "Sales AI Permission Rule",
+            {"reference_doctype": doctype, "enabled": 1},
+        ))
+    except Exception:
+        return False
+
 # ---------------------------------------------------------------------------
 # Priority order for role resolution
 # ---------------------------------------------------------------------------
@@ -560,7 +577,7 @@ def check_ai_permission(
         #    Address) — it is an internal DocType the guard uses behind the scenes.
         #    Fall through to ERPNext's native permission check.
         scope = None
-        if best_role in ROLE_PERMISSIONS and doctype and doctype in _ALL_MATRIX_DOCTYPES:
+        if best_role in ROLE_PERMISSIONS and doctype and _is_managed_doctype(doctype):
             reason = _(
                 "Your role ({role}) does not have access to {doctype} "
                 "through the assistant."
@@ -860,13 +877,59 @@ def _best_role(user_roles: list[str]) -> str | None:
 
 
 def _matrix_entry(role: str | None, doctype: str) -> dict[str, Any] | None:
-    """Look up the matrix entry for a role + DocType.  ``None`` if not found."""
+    """Look up the matrix entry for a role + DocType.
+
+    Checks the ``Sales AI Permission Rule`` DocType first — if an enabled row
+    exists for this role + DocType, it overrides the hard-coded default.  When
+    no DB row exists, the hard-coded ``ROLE_PERMISSIONS`` dict is used.  When
+    neither has an opinion, returns ``None``.
+    """
     if not role or not doctype:
         return None
+
+    # DB override (cached per request by frappe.get_all's internal cache).
+    db_entry = _db_matrix_entry(role, doctype)
+    if db_entry is not None:
+        return db_entry
+
+    # Hard-coded fallback.
     role_map = ROLE_PERMISSIONS.get(role)
     if role_map is None:
         return None
     return role_map.get(doctype)
+
+
+def _db_matrix_entry(role: str, doctype: str) -> dict[str, Any] | None:
+    """Read a permission rule from the database, if one exists."""
+    try:
+        rows = frappe.get_all(
+            "Sales AI Permission Rule",
+            filters={"role": role, "reference_doctype": doctype, "enabled": 1},
+            fields=[
+                "allow_read", "allow_create", "allow_write", "allow_delete",
+                "allow_submit", "allow_cancel", "allow_report", "scope",
+            ],
+            limit=1,
+            ignore_permissions=True,
+        )
+    except Exception:
+        # Table may not exist yet (before migrate). Fall through to defaults.
+        return None
+
+    if not rows:
+        return None
+
+    row = rows[0]
+    return {
+        "read": bool(row.allow_read),
+        "create": bool(row.allow_create),
+        "write": bool(row.allow_write),
+        "delete": bool(row.allow_delete),
+        "submit": bool(row.allow_submit),
+        "cancel": bool(row.allow_cancel),
+        "report": bool(row.allow_report),
+        "scope": row.scope or "own",
+    }
 
 
 def _erpnext_ptype(action: str) -> str:
