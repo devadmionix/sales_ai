@@ -44,7 +44,7 @@ class TestFollowUps(IntegrationTestCase):
 					}
 				).insert(ignore_permissions=True)
 
-		self.lead = self._lead("Follow Up Test Lead")
+		self.lead = self._lead("Follow Up Test Lead", owner=MINE)
 		decoy = self._lead("Follow Up Test Decoy")
 		# The outsider is confined to one other lead, which is how a real deployment keeps
 		# salespeople off each other's accounts.
@@ -64,13 +64,18 @@ class TestFollowUps(IntegrationTestCase):
 
 		frappe.set_user(MINE)
 
-	def _lead(self, title: str):
+	def _lead(self, title: str, owner: str | None = None):
 		name = frappe.db.get_value("Lead", {"lead_name": title}, "name")
 		if name:
+			if owner:
+				frappe.db.set_value("Lead", name, "owner", owner, update_modified=False)
 			return frappe.get_doc("Lead", name)
-		return frappe.get_doc(
+		doc = frappe.get_doc(
 			{"doctype": "Lead", "lead_name": title, "company_name": title, "status": "Lead"}
 		).insert(ignore_permissions=True)
+		if owner:
+			frappe.db.set_value("Lead", doc.name, "owner", owner, update_modified=False)
+		return doc
 
 	def _reminder(self, when: str | None = None) -> str:
 		return create_follow_up(

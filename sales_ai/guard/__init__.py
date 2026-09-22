@@ -150,9 +150,9 @@ def read_document(doctype: str, name: str) -> dict[str, Any]:
 	# Checks the role permission and the User Permissions attached to this record.
 	doc.check_permission("read")
 
-	# Note: scope enforcement (owner filter) is applied on list queries only
-	# (read_list, aggregate). Single-record access is governed by ERPNext's
-	# check_permission above, which respects User Permissions and ownership.
+	# Scope enforcement: "own" means only records the user created.
+	if _scope_blocks(doctype, doc.owner):
+		raise GuardError(NO_SUCH_RECORD.format(doctype=doctype, name=name))
 
 	record = _clean(spec, {fieldname: doc.get(fieldname) for fieldname in spec.detail_fields})
 	for table, fields in spec.children.items():
@@ -338,8 +338,9 @@ def may_change(doctype: str, name: str, ptype: str, action: str):
 	if not frappe.db.exists(doctype, name) or not frappe.has_permission(doctype, "read", doc=name):
 		raise deny(action, doctype, name, NO_SUCH_RECORD.format(doctype=doctype, name=name))
 
-	# Note: scope enforcement (owner filter) is applied on list queries only.
-	# Single-record writes are governed by ERPNext's check_permission above.
+	# Scope enforcement: "own" means only records the user created.
+	if _scope_blocks(doctype, frappe.db.get_value(doctype, name, "owner")):
+		raise deny(action, doctype, name, NO_SUCH_RECORD.format(doctype=doctype, name=name))
 
 	if not frappe.has_permission(doctype, ptype, doc=name):
 		raise deny(action, doctype, name, f"You cannot change the {doctype} {name!r}.")
