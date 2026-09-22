@@ -136,12 +136,20 @@ def _pump(
 
 
 def build_agent(profile, *, think: bool = False) -> Agent:
-	"""Assemble the engine from a profile. The tool list is a whitelist, never a filter.
+	"""Assemble the engine from a profile, filtered to the calling user's role.
+
+	The profile picks which tools exist (a whitelist); the RBAC layer then narrows
+	that list to the ones this user's role may invoke.  A Sales User never sees
+	``submit_document`` in the tool list, so the model never tries to call it.
 
 	`think` is asked for per turn rather than stored on the profile, because it is the
 	question that is hard, not the agent.
 	"""
-	selected = tools.select([row.tool for row in profile.tools if row.enabled])
+	from sales_ai.guard.permissions import filter_tools_for_user
+
+	profile_tools = [row.tool for row in profile.tools if row.enabled]
+	allowed_tools = filter_tools_for_user(profile_tools)
+	selected = tools.select(allowed_tools)
 	model = Model.from_name(profile.model)
 	if think:
 		model.think()

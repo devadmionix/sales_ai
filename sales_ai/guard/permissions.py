@@ -347,6 +347,65 @@ ROLE_PERMISSIONS: dict[str, dict[str, dict[str, Any]]] = {
     },
 
     # -----------------------------------------------------------------
+    # Sales Director — broad visibility, limited destructive actions
+    # -----------------------------------------------------------------
+    "Sales Director": {
+        "Lead": {
+            "read": True, "create": True, "write": True, "delete": False,
+            "submit": False, "cancel": False, "report": True,
+            "scope": "all",
+        },
+        "Opportunity": {
+            "read": True, "create": True, "write": True, "delete": False,
+            "submit": False, "cancel": False, "report": True,
+            "scope": "all",
+        },
+        "Quotation": {
+            "read": True, "create": True, "write": True, "delete": False,
+            "submit": True, "cancel": True, "report": True,
+            "scope": "all",
+        },
+        "Sales Order": {
+            "read": True, "create": True, "write": True, "delete": False,
+            "submit": True, "cancel": True, "report": True,
+            "scope": "all",
+        },
+        "Sales Invoice": {
+            "read": True, "create": False, "write": False, "delete": False,
+            "submit": False, "cancel": False, "report": True,
+            "scope": "all",
+        },
+        "Delivery Note": {
+            "read": True, "create": False, "write": False, "delete": False,
+            "submit": False, "cancel": False, "report": True,
+            "scope": "all",
+        },
+        "Customer": {
+            "read": True, "create": True, "write": True, "delete": False,
+            "submit": False, "cancel": False, "report": True,
+            "scope": "all",
+        },
+        "Contact": {
+            "read": True, "create": True, "write": True, "delete": False,
+            "submit": False, "cancel": False, "report": True,
+            "scope": "all",
+        },
+        "Item": {
+            "read": True, "create": False, "write": False, "delete": False,
+            "submit": False, "cancel": False, "report": True,
+            "scope": "all",
+        },
+        "Item Price": {
+            "read": True, "create": False, "write": False, "delete": False,
+            "submit": False, "cancel": False, "report": True,
+            "scope": "all",
+        },
+        "Payment Entry": {
+            **_RO, "report": True, "scope": "all",
+        },
+    },
+
+    # -----------------------------------------------------------------
     # Customer (portal user)
     # -----------------------------------------------------------------
     "Customer": {
@@ -411,6 +470,7 @@ ROLE_PRIORITY = (
     "Administrator",
     "System Manager",
     "Sales Master Manager",
+    "Sales Director",
     "Accounts Manager",
     "Sales Manager",
     "Accounts User",
@@ -627,6 +687,162 @@ def is_customer_user(user: str | None = None) -> bool:
     user = user or frappe.session.user
     user_type = frappe.db.get_value("User", user, "user_type")
     return user_type != "System User"
+
+
+def filter_tools_for_user(
+    tool_names: list[str], user: str | None = None
+) -> list[str]:
+    """Remove tools the user's role should never see.
+
+    This is the role-aware half of tool selection. The agent profile picks
+    which tools exist; this function narrows that list to the ones the calling
+    user's role is allowed to invoke. A Sales User never sees ``submit_document``
+    in the tool list, so the model never tries to call it and the user never
+    has to read a refusal.
+
+    Roles not in ``ROLE_TOOL_ACCESS`` (e.g. Administrator, System Manager) get
+    every tool — the matrix falls through to ERPNext, which already gives them
+    full access.
+    """
+    user = user or frappe.session.user
+    user_roles = frappe.get_roles(user)
+    best_role = _best_role(user_roles)
+
+    if not best_role or best_role not in ROLE_TOOL_ACCESS:
+        # Administrator, System Manager, or unknown — no filtering.
+        return tool_names
+
+    allowed = ROLE_TOOL_ACCESS[best_role]
+    return [name for name in tool_names if name in allowed]
+
+
+# ---------------------------------------------------------------------------
+# Tool access per role
+# ---------------------------------------------------------------------------
+# Which tools each role may *see*. A tool not listed here is hidden from the
+# model's tool list for that role, so it is never called and never refused —
+# the cleanest enforcement. The guard layer's RBAC pre-checks are still the
+# backstop: if a tool somehow runs, the permission check will catch it.
+#
+# Roles not in this dict get every tool (Administrator, System Manager).
+#
+# The sets are deliberately spelled out rather than computed, so a reviewer can
+# see exactly what each role gets without chasing through three levels of
+# indirection.
+
+# -- shared tool groups, to keep the per-role sets readable ------------------
+
+_READ_TOOLS = frozenset({
+    "search_records", "get_record",
+})
+
+_WRITE_TOOLS = frozenset({
+    "create_record", "update_record", "add_note",
+    "create_follow_up", "assign_record",
+})
+
+_SELL_TOOLS_READ = frozenset({
+    "check_availability", "price_items",
+})
+
+_SELL_TOOLS_WRITE = frozenset({
+    "draft_quotation", "submit_quotation",
+    "convert_quotation_to_order",
+})
+
+_LEAD_TOOLS = frozenset({
+    "convert_lead_to_customer", "convert_lead_to_opportunity",
+})
+
+_EMAIL_TOOLS = frozenset({
+    "list_recipients", "draft_email", "send_email",
+})
+
+_FOLLOWUP_TOOLS = frozenset({
+    "list_follow_ups", "update_follow_up",
+})
+
+_ANALYSE_TOOLS = frozenset({
+    "measure_records", "run_sales_report",
+})
+
+_ADVISOR_TOOLS = frozenset({
+    "forecast_revenue", "score_leads", "get_recommendations",
+    "segment_customers", "compare_periods", "detect_anomalies",
+    "cross_sell", "upsell", "repeat_purchase_due",
+    "product_performance", "weighted_pipeline", "sales_cycle",
+    "sales_day_brief", "target_vs_actual",
+})
+
+_MANAGER_TOOLS = frozenset({
+    "manager_brief",
+})
+
+_INSIGHT_TOOLS = frozenset({
+    "get_churn_risk",
+})
+
+_LINE_TOOLS = frozenset({
+    "revise_lines",
+})
+
+_SUBMIT_CANCEL = frozenset({
+    "submit_document", "cancel_document",
+})
+
+_PORTAL_TOOLS = frozenset({
+    "register_customer", "my_account",
+})
+
+# -- per-role access ---------------------------------------------------------
+
+ROLE_TOOL_ACCESS: dict[str, frozenset[str]] = {
+    # Sales User: full CRM + selling workflow, no submit/cancel, no manager brief
+    "Sales User": (
+        _READ_TOOLS | _WRITE_TOOLS | _SELL_TOOLS_READ | _SELL_TOOLS_WRITE
+        | _LEAD_TOOLS | _EMAIL_TOOLS | _FOLLOWUP_TOOLS | _ANALYSE_TOOLS
+        | _ADVISOR_TOOLS | _INSIGHT_TOOLS | _LINE_TOOLS
+    ),
+
+    # Sales Manager: everything a Sales User gets, plus submit/cancel and manager brief
+    "Sales Manager": (
+        _READ_TOOLS | _WRITE_TOOLS | _SELL_TOOLS_READ | _SELL_TOOLS_WRITE
+        | _LEAD_TOOLS | _EMAIL_TOOLS | _FOLLOWUP_TOOLS | _ANALYSE_TOOLS
+        | _ADVISOR_TOOLS | _MANAGER_TOOLS | _INSIGHT_TOOLS | _LINE_TOOLS
+        | _SUBMIT_CANCEL
+    ),
+
+    # Sales Master Manager (Sales Admin/Ops): everything
+    "Sales Master Manager": (
+        _READ_TOOLS | _WRITE_TOOLS | _SELL_TOOLS_READ | _SELL_TOOLS_WRITE
+        | _LEAD_TOOLS | _EMAIL_TOOLS | _FOLLOWUP_TOOLS | _ANALYSE_TOOLS
+        | _ADVISOR_TOOLS | _MANAGER_TOOLS | _INSIGHT_TOOLS | _LINE_TOOLS
+        | _SUBMIT_CANCEL | frozenset({"add_opening_stock"})
+    ),
+
+    # Sales Director: broad read + analytics, limited writes, submit/cancel on quotes/orders
+    "Sales Director": (
+        _READ_TOOLS | _WRITE_TOOLS | _SELL_TOOLS_READ | _SELL_TOOLS_WRITE
+        | _LEAD_TOOLS | _EMAIL_TOOLS | _FOLLOWUP_TOOLS | _ANALYSE_TOOLS
+        | _ADVISOR_TOOLS | _MANAGER_TOOLS | _INSIGHT_TOOLS | _LINE_TOOLS
+        | _SUBMIT_CANCEL
+    ),
+
+    # Accounts User: financial documents only — no CRM, no selling workflow
+    "Accounts User": (
+        _READ_TOOLS | _ANALYSE_TOOLS | _FOLLOWUP_TOOLS
+        | _SUBMIT_CANCEL
+    ),
+
+    # Accounts Manager: Accounts User + write access + manager brief
+    "Accounts Manager": (
+        _READ_TOOLS | _WRITE_TOOLS | _ANALYSE_TOOLS | _FOLLOWUP_TOOLS
+        | _SUBMIT_CANCEL | _MANAGER_TOOLS
+    ),
+
+    # Customer (portal): only self-service tools
+    "Customer": _PORTAL_TOOLS | _READ_TOOLS,
+}
 
 
 # ---------------------------------------------------------------------------

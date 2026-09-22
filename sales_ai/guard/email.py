@@ -32,6 +32,7 @@ import frappe
 from frappe.utils import escape_html
 
 from sales_ai.guard import GuardError, deny, may_change
+from sales_ai.guard.permissions import check_ai_permission
 from sales_ai.guard.specs import SPECS
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_action
 
@@ -98,6 +99,12 @@ def send(
 	"""
 	if doctype not in SPECS:
 		raise GuardError(f"{doctype!r} is not a record the assistant works with.")
+
+	# RBAC pre-check: emailing requires at least write-level access to the DocType,
+	# because writing to a customer on behalf of the company is a write action.
+	result = check_ai_permission(doctype=doctype, action="write")
+	if not result.allowed:
+		raise GuardError(result.reason)
 
 	heading = (subject or "").strip()
 	if not heading:
