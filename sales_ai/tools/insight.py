@@ -54,6 +54,13 @@ def get_churn_risk(
 	] = None,
 	limit: Annotated[int, f"How many customers to return, up to {MAX_LIMIT}."] = DEFAULT_LIMIT,
 ) -> dict[str, Any]:
+	from sales_ai.guard import GuardError
+	from sales_ai.guard.permissions import check_ai_permission
+
+	result = check_ai_permission(doctype="Customer", action="read")
+	if not result.allowed:
+		raise GuardError("You do not have permission to view customer insights.")
+
 	return read_insights(
 		KIND,
 		subject_doctype="Customer",

@@ -11,8 +11,25 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
+from sales_ai.guard import GuardError
+from sales_ai.guard.permissions import check_ai_permission
 from sales_ai.llm.tool import tool
 from sales_ai.tools import register
+
+
+def _require_intelligence_access() -> None:
+	"""Gate: the user must have report permission on at least Sales Order to use intelligence tools.
+
+	Intelligence tools aggregate data from Sales Orders, Quotations, Opportunities, Leads,
+	and Customers. Rather than checking every DocType individually, we require report access
+	on Sales Order — the core DocType these analytics are built around. If the RBAC matrix
+	says no, the tool refuses before any SQL runs.
+	"""
+	result = check_ai_permission(doctype="Sales Order", action="report")
+	if not result.allowed:
+		raise GuardError(
+			"You do not have permission to access sales intelligence tools."
+		)
 
 
 @tool(
@@ -33,6 +50,7 @@ def forecast_revenue(
 	months_back: Annotated[int, "How many months of history to analyse. Default 6."] = 6,
 	months_forward: Annotated[int, "How many months to project forward. Default 3."] = 3,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.forecast import forecast_revenue as _forecast
 	return _forecast(months_back=months_back, months_forward=months_forward)
 
@@ -54,6 +72,7 @@ This is pattern matching on the company's own conversion history, not a generic 
 def score_leads(
 	limit: Annotated[int, "How many leads to return. Default 20."] = 20,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.lead_score import score_leads as _score
 	return _score(limit=limit)
 
@@ -73,6 +92,7 @@ what the data says, and a concrete next step the business owner should take.
 This is the tool to call when someone asks "what should I do next?" or "how do I grow?".""",
 )
 def get_recommendations() -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.advisor import get_recommendations as _recs
 	return _recs()
 
@@ -101,6 +121,7 @@ def segment_customers(
 	period_months: Annotated[int, "How many months of history to consider. Default 12."] = 12,
 	limit: Annotated[int, "How many customers to return. Default 50."] = 50,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.segments import segment_customers as _segment
 	return _segment(period_months=period_months, limit=limit)
 
@@ -126,6 +147,7 @@ compared to".""",
 def compare_periods(
 	period: Annotated[str, "'month', 'quarter', or 'year'. Default 'month'."] = "month",
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.compare import compare_periods as _compare
 	return _compare(period=period)
 
@@ -150,6 +172,7 @@ anomalies, or "what's different this month".""",
 def detect_anomalies(
 	months_back: Annotated[int, "How many months of history to analyse. Default 6."] = 6,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.anomalies import detect_anomalies as _detect
 	return _detect(months_back=months_back)
 
@@ -171,6 +194,7 @@ def cross_sell(
 	customer: Annotated[str, "Customer ID (e.g. 'CUST-00001')."],
 	limit: Annotated[int, "How many suggestions to return. Default 5."] = 5,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.products import cross_sell as _cross_sell
 	return _cross_sell(customer=customer, limit=limit)
 
@@ -190,6 +214,7 @@ def upsell(
 	customer: Annotated[str, "Customer ID (e.g. 'CUST-00001')."],
 	limit: Annotated[int, "How many suggestions to return. Default 5."] = 5,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.products import upsell as _upsell
 	return _upsell(customer=customer, limit=limit)
 
@@ -209,6 +234,7 @@ be slipping away.""",
 def repeat_purchase_due(
 	limit: Annotated[int, "How many customers to return. Default 20."] = 20,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.products import repeat_purchase_due as _repeat
 	return _repeat(limit=limit)
 
@@ -228,6 +254,7 @@ def product_performance(
 	period_months: Annotated[int, "How many months of history. Default 6."] = 6,
 	limit: Annotated[int, "How many products to return. Default 20."] = 20,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.products import product_performance as _perf
 	return _perf(period_months=period_months, limit=limit)
 
@@ -248,6 +275,7 @@ Also flags overdue deals (expected_closing has passed). Use this for any pipelin
 revenue forecasting from pipeline, or "how much pipeline do we really have?".""",
 )
 def weighted_pipeline() -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.pipeline import weighted_pipeline as _wp
 	return _wp()
 
@@ -266,6 +294,7 @@ or time to close.""",
 def sales_cycle(
 	months_back: Annotated[int, "How many months of history. Default 12."] = 12,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.pipeline import sales_cycle as _sc
 	return _sc(months_back=months_back)
 
@@ -287,6 +316,7 @@ This is the tool to call when someone says "what's on my plate?", "morning revie
 "what should I focus on today?", or "give me my daily brief".""",
 )
 def sales_day_brief() -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.brief import sales_day_brief as _brief
 	return _brief()
 
@@ -309,6 +339,7 @@ or "weekly/monthly manager brief".""",
 def manager_brief(
 	period_months: Annotated[int, "How many months to cover. Default 1 (current month)."] = 1,
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.brief import manager_brief as _mgr
 	return _mgr(period_months=period_months)
 
@@ -332,6 +363,7 @@ Use this when someone asks "are we hitting target?", "why did we miss target?",
 def target_vs_actual(
 	period: Annotated[str, "'month', 'quarter', or 'year'. Default 'month'."] = "month",
 ) -> dict[str, Any]:
+	_require_intelligence_access()
 	from sales_ai.intelligence.targets import target_vs_actual as _tva
 	return _tva(period=period)
 

@@ -9,6 +9,12 @@ from frappe.utils import flt, getdate, nowdate, add_days, get_first_day, get_las
 @frappe.whitelist()
 def get_kpis(company: str | None = None, from_date: str | None = None, to_date: str | None = None):
 	"""Return all dashboard KPIs for the given filters."""
+	from sales_ai.guard.permissions import check_ai_permission
+
+	# Only users with Sales Order read access may view the dashboard.
+	result = check_ai_permission(doctype="Sales Order", action="read")
+	if not result.allowed:
+		frappe.throw("You do not have permission to view the Sales Dashboard.", frappe.PermissionError)
 
 	company = company or frappe.defaults.get_user_default("Company")
 	if not company:

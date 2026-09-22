@@ -31,6 +31,19 @@ from sales_ai.playbook import engine
 from sales_ai.tools import read
 
 
+_ALLOWED_ROLES = frozenset({
+	"Administrator", "System Manager",
+	"Sales User", "Sales Manager", "Sales Master Manager",
+	"Accounts User", "Accounts Manager",
+})
+"""Roles that may use the Sales AI chatbot.
+
+A user must have *at least one* of these roles to access the assistant.
+This prevents users with only non-sales roles (e.g. HR User, Website Manager)
+from reaching the assistant, even though they are System Users.
+"""
+
+
 def guard_entry() -> None:
 	"""Decide whether this login gets the assistant at all, before anything else runs.
 
@@ -52,6 +65,13 @@ def guard_entry() -> None:
 
 	if frappe.db.get_value("User", frappe.session.user, "user_type") != "System User":
 		raise frappe.PermissionError(_("The assistant is not available for this account."))
+
+	# Role check: the user must hold at least one sales-related role.
+	user_roles = set(frappe.get_roles(frappe.session.user))
+	if not user_roles & _ALLOWED_ROLES:
+		raise frappe.PermissionError(
+			_("You do not have a role that permits access to the Sales AI assistant.")
+		)
 
 
 @frappe.whitelist(methods=["POST"])

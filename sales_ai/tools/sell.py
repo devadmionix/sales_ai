@@ -227,9 +227,28 @@ def add_opening_stock(
 	import frappe
 	from frappe.utils import flt, nowdate
 
+	from sales_ai.guard import GuardError
+	from sales_ai.guard.permissions import check_ai_permission
+
+	# RBAC pre-check: creating and submitting a Stock Entry is a privileged operation.
+	for action in ("create", "submit"):
+		result = check_ai_permission(doctype="Stock Entry", action=action)
+		if not result.allowed:
+			raise GuardError(result.reason)
+
+	# ERPNext permission check (not bypassed).
+	frappe.has_permission("Stock Entry", "create", throw=True)
+	frappe.has_permission("Stock Entry", "submit", throw=True)
+
+	if not frappe.db.exists("Item", item_code):
+		raise GuardError(f"Item {item_code} does not exist.")
+
 	item = frappe.get_cached_doc("Item", item_code)
 	if not item.is_stock_item:
 		return {"error": f"{item_code} is not a stock-tracked item. No stock entry needed."}
+
+	if flt(qty) <= 0:
+		raise GuardError("Quantity must be greater than zero.")
 
 	if not warehouse:
 		company = frappe.defaults.get_user_default("Company")
