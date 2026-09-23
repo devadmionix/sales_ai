@@ -139,15 +139,32 @@ after_migrate = "sales_ai.install.after_migrate"
 
 # Permissions
 # -----------
-# Permissions evaluated in scripted ways
+# Server-side record ownership.  These hooks apply to normal Frappe Desk/API list and
+# document permission checks as well as Sales AI.  The hook only narrows access when the
+# current user's Sales AI scope is ``own``; Manager/Admin scopes fall through to Frappe's
+# native permissions.
+from sales_ai.guard.permissions import ROLE_PERMISSIONS
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+_OWNERSHIP_MANAGED_DOCTYPES = sorted({
+	doctype
+	for role_permissions in ROLE_PERMISSIONS.values()
+	for doctype in role_permissions
+})
+
+def _ownership_query_hook_name(doctype):
+	slug = "query_" + "_".join(part.lower() for part in doctype.replace("-", " ").split())
+	return f"sales_ai.guard.ownership.{slug}"
+
+
+permission_query_conditions = {
+	doctype: _ownership_query_hook_name(doctype)
+	for doctype in _OWNERSHIP_MANAGED_DOCTYPES
+}
+
+has_permission = {
+	doctype: "sales_ai.guard.ownership.has_permission"
+	for doctype in _OWNERSHIP_MANAGED_DOCTYPES
+}
 
 # Document Events
 # ---------------

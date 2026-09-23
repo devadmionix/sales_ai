@@ -34,7 +34,9 @@ from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import re
 MAX_NOTE = 2000
 
 
-def create_record(doctype: str, values: dict[str, Any], *, tool: str) -> dict[str, Any]:
+def create_record(
+	doctype: str, values: dict[str, Any], *, submit: bool = False, tool: str
+) -> dict[str, Any]:
 	spec = _spec(doctype)
 
 	# RBAC pre-check: does the chatbot's role matrix allow creating this DocType?
@@ -56,6 +58,7 @@ def create_record(doctype: str, values: dict[str, Any], *, tool: str) -> dict[st
 	doc = frappe.new_doc(doctype)
 	doc.update(clean)
 	_fill_company(doc)
+	# Runs as the current user. No ignore_permissions, no Administrator switch.
 	doc.insert()
 
 	doc.add_comment("Info", _("Created by Sales AI for {0}.").format(frappe.session.user))
@@ -67,7 +70,40 @@ def create_record(doctype: str, values: dict[str, Any], *, tool: str) -> dict[st
 		changes=clean,
 	)
 
-	return {"created": doctype, "name": doc.name, "record": read_document(doctype, doc.name)}
+	if not submit:
+		return {"created": doctype, "name": doc.name, "record": read_document(doctype, doc.name)}
+
+	# Create-and-submit ("create this record as submitted"). Submission is
+	# best-effort under the current user's own permissions: a refusal keeps
+	# the draft and returns the reason instead of failing the creation.
+	from sales_ai.guard.documents import is_submittable, submit_after_create
+
+	if not is_submittable(doctype):
+		# Most generic records (Lead, Opportunity, ...) have no Submit
+		# workflow in ERPNext at all — report the draft honestly.
+		return {
+			"created": doctype,
+			"name": doc.name,
+			"submitted": False,
+			"status": "Draft",
+			"record": read_document(doctype, doc.name),
+			"note": f"{doctype} does not support submission, so the record stays as created.",
+		}
+
+	outcome = submit_after_create(doctype, doc.name, tool=tool)
+	if isinstance(outcome.get("submitted"), str):
+		return {"created": doctype, **outcome}
+	return {
+		"created": doctype,
+		"name": doc.name,
+		"submitted": False,
+		"status": "Draft",
+		"record": read_document(doctype, doc.name),
+		"note": (
+			"The record was created successfully but remains in Draft because "
+			f"it could not be submitted: {outcome.get('reason')}"
+		),
+	}
 
 
 def update_record(doctype: str, name: str, values: dict[str, Any], *, tool: str) -> dict[str, Any]:

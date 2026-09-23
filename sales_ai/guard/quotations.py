@@ -29,8 +29,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate
 
-from sales_ai.guard import GuardError, _may_read
-from sales_ai.guard.permissions import check_ai_permission
+from sales_ai.guard import NO_SUCH_RECORD, GuardError, _may_read, deny
+from sales_ai.guard.permissions import check_ai_permission, get_user_scope
 from sales_ai.guard.pricing import LINE_FIELDS, TOTAL_FIELDS, draft
 from sales_ai.sales_ai.doctype.sales_ai_action_log.sales_ai_action_log import record_action
 
@@ -43,6 +43,7 @@ def draft_quotation(
 	price_list: str | None = None,
 	date: str | None = None,
 	valid_till: str | None = None,
+	submit: bool = False,
 	tool: str,
 ) -> dict[str, Any]:
 	"""Save the very Quotation that `pricing.draft` built and ERPNext priced.
@@ -50,6 +51,11 @@ def draft_quotation(
 	Same code path as `price_items`, deliberately: the figure the agent quoted in the
 	conversation and the figure on the document a human is asked to approve have to be the
 	same figure, and the only way to be sure of that is for there to be one of them.
+
+	When `submit` is true ("create and submit", "create this record as submitted"),
+	the draft is submitted right away under the current user's permissions. If the
+	user may not submit, the quotation is kept as a draft and the reason is
+	returned — the creation is not failed or rolled back.
 	"""
 	# RBAC pre-check: does the chatbot's role matrix allow creating Quotations?
 	result = check_ai_permission(doctype="Quotation", action="create")
@@ -78,10 +84,28 @@ def draft_quotation(
 		},
 	)
 
+	if not submit:
+		return {
+			"drafted": "Quotation",
+			**summarise(quotation),
+			"note": "This is a draft. Nobody has been sent it and nothing is committed yet.",
+		}
+
+	# Create-and-submit: the draft above is the success; submission is best-effort
+	# under the current user's own permissions. Never bypassed, never rolled back.
+	from sales_ai.guard.documents import submit_after_create
+
+	outcome = submit_after_create("Quotation", quotation.name, tool=tool)
+	if isinstance(outcome.get("submitted"), str):
+		return outcome
 	return {
-		"drafted": "Quotation",
-		**summarise(quotation),
-		"note": "This is a draft. Nobody has been sent it and nothing is committed yet.",
+		"created": "Quotation",
+		"submitted": False,
+		**summarise(frappe.get_doc("Quotation", quotation.name)),
+		"note": (
+			"The quotation was created successfully but remains in Draft because "
+			f"it could not be submitted: {outcome.get('reason')}"
+		),
 	}
 
 
@@ -93,11 +117,17 @@ def submit_quotation(name: str, *, tool: str) -> dict[str, Any]:
 		raise GuardError(result.reason)
 
 	quotation = _quotation(name, "submit")
+	if quotation.docstatus == 1:
+		raise GuardError(f"Quotation {name} is already submitted.")
+	if quotation.docstatus == 2:
+		raise GuardError(f"Quotation {name} is cancelled and cannot be submitted.")
 	if quotation.docstatus != 0:
 		raise GuardError(
 			f"Quotation {name} is already {_state(quotation)} and cannot be submitted again."
 		)
 
+	# Runs as the current user. `submit()` re-checks submit permission, User
+	# Permissions, ownership and workflow — never bypassed.
 	quotation.submit()
 	quotation.add_comment("Info", _("Submitted by Sales AI for {0}.").format(frappe.session.user))
 
@@ -112,8 +142,15 @@ def submit_quotation(name: str, *, tool: str) -> dict[str, Any]:
 	return {"submitted": "Quotation", **summarise(quotation)}
 
 
-def convert_to_sales_order(name: str, *, delivery_date: str, tool: str) -> dict[str, Any]:
-	"""Map a submitted Quotation onto a Sales Order, and leave that order in draft."""
+def convert_to_sales_order(
+	name: str, *, delivery_date: str, submit: bool = False, tool: str
+) -> dict[str, Any]:
+	"""Map a submitted Quotation onto a Sales Order, and leave that order in draft.
+
+	When `submit` is true ("create and submit"), the new order is submitted
+	right away under the current user's permissions. A refusal keeps the
+	draft and returns the reason instead of failing.
+	"""
 	# RBAC pre-check: need read on Quotation and create on Sales Order
 	result = check_ai_permission(doctype="Sales Order", action="create")
 	if not result.allowed:
@@ -145,8 +182,9 @@ def convert_to_sales_order(name: str, *, delivery_date: str, tool: str) -> dict[
 	for row in order.items:
 		row.delivery_date = order.delivery_date
 
-	# Left in draft on purpose: submitting is `documents.submit_document`, which the user
-	# has to ask for separately. See this module's docstring.
+	# Left in draft unless the user asked for submission: submitting is
+	# `documents.submit_document`, which the user has to ask for. See this
+	# module's docstring.
 	order.insert()
 	order.add_comment(
 		"Info", _("Drafted from {0} by Sales AI for {1}.").format(name, frappe.session.user)
@@ -160,13 +198,30 @@ def convert_to_sales_order(name: str, *, delivery_date: str, tool: str) -> dict[
 		changes={"from_quotation": name, "delivery_date": str(order.delivery_date), "grand_total": flt(order.grand_total)},
 	)
 
+	if not submit:
+		return {
+			"drafted": "Sales Order",
+			"from_quotation": name,
+			**summarise(order),
+			"note": (
+				"The order is a draft and reserves no stock. It commits the company to nothing "
+				"until it is submitted, which is a separate step the user has to ask for."
+			),
+		}
+
+	from sales_ai.guard.documents import submit_after_create
+
+	outcome = submit_after_create("Sales Order", order.name, tool=tool)
+	if isinstance(outcome.get("submitted"), str):
+		return {**outcome, "from_quotation": name}
 	return {
-		"drafted": "Sales Order",
+		"created": "Sales Order",
+		"submitted": False,
 		"from_quotation": name,
-		**summarise(order),
+		**summarise(frappe.get_doc("Sales Order", order.name)),
 		"note": (
-			"The order is a draft and reserves no stock. It commits the company to nothing "
-			"until it is submitted, which is a separate step the user has to ask for."
+			"The order was created successfully but remains in Draft because "
+			f"it could not be submitted: {outcome.get('reason')}"
 		),
 	}
 
@@ -202,6 +257,16 @@ def summarise(doc: Any) -> dict[str, Any]:
 def _quotation(name: str, permission: str) -> Any:
 	_may_read("Quotation", name)
 	quotation = frappe.get_doc("Quotation", name)
+	# Same owner-only scope `may_change` enforces on every other write path:
+	# an "own"-scoped user cannot submit, convert or preview somebody else's
+	# quotation. Denied exactly like a record that does not exist, so
+	# guessing IDs teaches nothing. (Native `has_permission` hooks enforce
+	# this too; this keeps the guard correct even without them.)
+	if get_user_scope(doctype="Quotation") == "own" and quotation.owner != frappe.session.user:
+		action = {"submit": "Submit", "read": "Read"}.get(permission, permission.title())
+		raise deny(
+			action, "Quotation", name, NO_SUCH_RECORD.format(doctype="Quotation", name=name)
+		)
 	quotation.check_permission(permission)
 	return quotation
 

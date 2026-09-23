@@ -10,6 +10,7 @@ from frappe.utils import flt, getdate, nowdate, add_days, get_first_day, get_las
 def get_kpis(company: str | None = None, from_date: str | None = None, to_date: str | None = None):
 	"""Return all dashboard KPIs for the given filters."""
 	from sales_ai.guard.permissions import check_ai_permission
+	from sales_ai.guard.ownership import sql_owner_clause, is_owner_restricted
 
 	# Only users with Sales Order read access may view the dashboard.
 	result = check_ai_permission(doctype="Sales Order", action="read")
@@ -39,8 +40,9 @@ def get_kpis(company: str | None = None, from_date: str | None = None, to_date: 
 
 def _revenue(company, from_date, to_date):
 	"""Total revenue from submitted Sales Orders in the period."""
+	owner_sql, owner_params = sql_owner_clause("Sales Order")
 	result = frappe.db.sql(
-		"""
+		f"""
 		SELECT COALESCE(SUM(base_grand_total), 0) AS total,
 		       COUNT(*) AS count,
 		       COALESCE(SUM(base_grand_total), 0) / NULLIF(COUNT(*), 0) AS avg_value
@@ -48,8 +50,9 @@ def _revenue(company, from_date, to_date):
 		WHERE docstatus = 1
 		  AND company = %s
 		  AND transaction_date BETWEEN %s AND %s
+		{owner_sql}
 		""",
-		(company, from_date, to_date),
+		(company, from_date, to_date, *owner_params),
 		as_dict=True,
 	)
 	row = result[0] if result else {}
@@ -62,6 +65,11 @@ def _revenue(company, from_date, to_date):
 
 def _target(company, from_date, to_date):
 	"""Sales target from Monthly Distribution or Target Detail."""
+	# Sales targets are not owner-based Frappe records.  For an owner-scoped user, do
+	# not expose company-wide target totals until a Sales Person → User mapping is present.
+	if is_owner_restricted(frappe.session.user, "Sales Order"):
+		return {"amount": 0, "fiscal_year": "", "scope": "own"}
+
 	# Try to get target from Sales Person Target Detail
 	target_amount = 0
 
@@ -98,8 +106,9 @@ def _target(company, from_date, to_date):
 
 def _pipeline(company):
 	"""Open opportunity pipeline: total and weighted (amount × probability)."""
+	owner_sql, owner_params = sql_owner_clause("Opportunity")
 	result = frappe.db.sql(
-		"""
+		f"""
 		SELECT COALESCE(SUM(opportunity_amount), 0) AS total,
 		       COALESCE(SUM(opportunity_amount * COALESCE(probability, 0) / 100), 0) AS weighted,
 		       COUNT(*) AS count
@@ -107,8 +116,9 @@ def _pipeline(company):
 		WHERE status NOT IN ('Lost', 'Closed')
 		  AND company = %s
 		  AND docstatus < 2
+		{owner_sql}
 		""",
-		(company,),
+		(company, *owner_params),
 		as_dict=True,
 	)
 	row = result[0] if result else {}
@@ -121,8 +131,9 @@ def _pipeline(company):
 
 def _won_lost(company, from_date, to_date):
 	"""Won and Lost opportunity counts and values in the period."""
+	owner_sql, owner_params = sql_owner_clause("Opportunity")
 	result = frappe.db.sql(
-		"""
+		f"""
 		SELECT status,
 		       COUNT(*) AS count,
 		       COALESCE(SUM(opportunity_amount), 0) AS amount
@@ -130,9 +141,10 @@ def _won_lost(company, from_date, to_date):
 		WHERE status IN ('Converted', 'Lost')
 		  AND company = %s
 		  AND modified BETWEEN %s AND %s
+		{owner_sql}
 		GROUP BY status
 		""",
-		(company, from_date, to_date),
+		(company, from_date, to_date, *owner_params),
 		as_dict=True,
 	)
 	won = next((r for r in result if r.status == "Converted"), {})
@@ -147,39 +159,36 @@ def _won_lost(company, from_date, to_date):
 
 def _conversion_rate(company, from_date, to_date):
 	"""Opportunity to Sales Order conversion rate in the period."""
-	total = frappe.db.count(
-		"Opportunity",
-		filters={
-			"company": company,
-			"creation": ("between", [from_date, to_date]),
-			"docstatus": ("<", 2),
-		},
-	)
-	converted = frappe.db.count(
-		"Opportunity",
-		filters={
-			"company": company,
-			"creation": ("between", [from_date, to_date]),
-			"status": "Converted",
-			"docstatus": ("<", 2),
-		},
-	)
+	from sales_ai.guard.ownership import owned_condition
+	base_filters = {
+		"company": company,
+		"creation": ("between", [from_date, to_date]),
+		"docstatus": ("<", 2),
+	}
+	for field, operator, value in owned_condition("Opportunity"):
+		base_filters[field] = value
+	total = frappe.db.count("Opportunity", filters=base_filters)
+	converted_filters = dict(base_filters)
+	converted_filters["status"] = "Converted"
+	converted = frappe.db.count("Opportunity", filters=converted_filters)
 	rate = flt(converted * 100 / total, 1) if total else 0
 	return {"rate": rate, "converted": converted, "total": total}
 
 
 def _aov(company, from_date, to_date):
 	"""Average Order Value from submitted Sales Orders."""
+	owner_sql, owner_params = sql_owner_clause("Sales Order")
 	result = frappe.db.sql(
-		"""
+		f"""
 		SELECT COALESCE(AVG(base_grand_total), 0) AS aov,
 		       COUNT(*) AS count
 		FROM `tabSales Order`
 		WHERE docstatus = 1
 		  AND company = %s
 		  AND transaction_date BETWEEN %s AND %s
+		{owner_sql}
 		""",
-		(company, from_date, to_date),
+		(company, from_date, to_date, *owner_params),
 		as_dict=True,
 	)
 	row = result[0] if result else {}
@@ -188,16 +197,18 @@ def _aov(company, from_date, to_date):
 
 def _sales_cycle(company, from_date, to_date):
 	"""Median sales cycle in days (Opportunity creation → Converted)."""
+	owner_sql, owner_params = sql_owner_clause("Opportunity")
 	rows = frappe.db.sql(
-		"""
+		f"""
 		SELECT DATEDIFF(modified, creation) AS cycle_days
 		FROM `tabOpportunity`
 		WHERE status = 'Converted'
 		  AND company = %s
 		  AND modified BETWEEN %s AND %s
+		{owner_sql}
 		ORDER BY cycle_days
 		""",
-		(company, from_date, to_date),
+		(company, from_date, to_date, *owner_params),
 		as_list=True,
 	)
 	if not rows:
@@ -213,8 +224,9 @@ def _sales_cycle(company, from_date, to_date):
 
 def _top_items(company, from_date, to_date, limit=5):
 	"""Top selling items by revenue in the period."""
+	owner_sql, owner_params = sql_owner_clause("Sales Order", "so")
 	return frappe.db.sql(
-		"""
+		f"""
 		SELECT soi.item_code, soi.item_name,
 		       SUM(soi.base_amount) AS revenue,
 		       SUM(soi.qty) AS qty
@@ -223,19 +235,21 @@ def _top_items(company, from_date, to_date, limit=5):
 		WHERE so.docstatus = 1
 		  AND so.company = %s
 		  AND so.transaction_date BETWEEN %s AND %s
+		{owner_sql}
 		GROUP BY soi.item_code, soi.item_name
 		ORDER BY revenue DESC
 		LIMIT %s
 		""",
-		(company, from_date, to_date, limit),
+		(company, from_date, to_date, *owner_params, limit),
 		as_dict=True,
 	)
 
 
 def _monthly_trend(company, from_date, to_date):
 	"""Monthly revenue trend from submitted Sales Orders."""
+	owner_sql, owner_params = sql_owner_clause("Sales Order")
 	return frappe.db.sql(
-		"""
+		f"""
 		SELECT DATE_FORMAT(transaction_date, '%%Y-%%m') AS month,
 		       COALESCE(SUM(base_grand_total), 0) AS revenue,
 		       COUNT(*) AS count
@@ -243,9 +257,10 @@ def _monthly_trend(company, from_date, to_date):
 		WHERE docstatus = 1
 		  AND company = %s
 		  AND transaction_date BETWEEN %s AND %s
+		{owner_sql}
 		GROUP BY DATE_FORMAT(transaction_date, '%%Y-%%m')
 		ORDER BY month
 		""",
-		(company, from_date, to_date),
+		(company, from_date, to_date, *owner_params),
 		as_dict=True,
 	)

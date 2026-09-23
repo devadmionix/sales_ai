@@ -31,6 +31,18 @@ def _require_intelligence_access() -> None:
 			"You do not have permission to access sales intelligence tools."
 		)
 
+	# The intelligence modules contain raw SQL over multiple sales tables.  Their queries
+	# must be explicitly owner-scoped before a normal user can execute them; otherwise an
+	# aggregate could disclose another user's records even though list/read access is safe.
+	# Fail closed for owner-scoped users and direct them to permission-aware analytics.
+	from sales_ai.guard.permissions import get_user_scope
+	if get_user_scope(doctype="Sales Order") == "own":
+		raise GuardError(
+			"Detailed sales intelligence is restricted for owner-scoped users until its SQL "
+			"sources are explicitly filtered by record owner. Use measure_records for your own "
+			"record-level analytics."
+		)
+
 
 @tool(
 	writes=False,

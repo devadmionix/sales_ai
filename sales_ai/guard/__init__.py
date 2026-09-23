@@ -206,20 +206,13 @@ def _has_user_permissions(doctype: str) -> bool:
 
 
 def _scope_blocks_list(doctype: str) -> bool:
-	"""Whether to add an ``owner`` filter to list queries for this DocType."""
-	scope = get_user_scope(doctype=doctype)
-	if scope != "own":
-		return False
-	return not _has_user_permissions(doctype)
+	"""Whether an owner filter is required for this user's list/search access."""
+	return get_user_scope(doctype=doctype) == "own"
 
 
 def _scope_blocks(doctype: str, doc_owner: str) -> bool:
-	"""Whether the scope prevents the current user from accessing a specific record."""
-	scope = get_user_scope(doctype=doctype)
-	if scope != "own":
-		return False
-	if _has_user_permissions(doctype):
-		# ERPNext's check_permission already enforced access.
+	"""Whether strict owner-only scope prevents access to a specific record."""
+	if get_user_scope(doctype=doctype) != "own":
 		return False
 	return doc_owner != frappe.session.user
 

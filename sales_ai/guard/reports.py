@@ -21,7 +21,7 @@ from typing import Any
 from frappe.utils import cint, cstr, getdate
 
 from sales_ai.guard import GuardError, _may_read, _plain_text
-from sales_ai.guard.permissions import check_ai_permission
+from sales_ai.guard.permissions import check_ai_permission, get_user_scope
 from sales_ai.guard.specs import REPORTS, ReportFilter, ReportSpec
 
 # A report is written for a screen somebody scrolls. The model gets the top of it and is
@@ -40,6 +40,12 @@ def run_report(name: str, filters: dict[str, Any] | None = None) -> dict[str, An
 
 	spec = _spec(name)
 	checked = _filters(spec, name, filters or {})
+
+	# Query Reports may execute raw SQL and therefore cannot be assumed to inherit
+	# permission_query_conditions.  For owner-scoped users, only run reports that expose a
+	# trustworthy owner/salesperson filter, and force that filter to the authenticated user.
+	if get_user_scope(doctype="Sales Order") == "own":
+		checked = _apply_owner_report_scope(name, spec, checked)
 
 	from frappe.desk.query_report import run
 
@@ -63,6 +69,35 @@ def run_report(name: str, filters: dict[str, Any] | None = None) -> dict[str, An
 		"rows": shown,
 		"truncated": len(rows) > len(shown),
 	}
+
+
+def _apply_owner_report_scope(name: str, spec: ReportSpec, checked: dict[str, Any]) -> dict[str, Any]:
+	"""Fail closed for reports whose query cannot be safely owner-scoped.
+
+	A query report is allowed only when its public filter maps directly to the current user.
+	Client-supplied values are overwritten, never trusted.
+	"""
+	if "assigned_to" in spec.filters:
+		checked["assigned_to"] = frappe.session.user
+		return checked
+
+	if "sales_person" in spec.filters:
+		user = frappe.session.user
+		meta = frappe.get_meta("Sales Person")
+		if meta.has_field("user_id"):
+			sales_person = frappe.db.get_value("Sales Person", {"user_id": user}, "name")
+			if sales_person:
+				checked["sales_person"] = sales_person
+				return checked
+		raise GuardError(
+			f"{name} cannot be safely run for an owner-scoped user because no Sales Person "
+			"record is linked to the current user."
+		)
+
+	raise GuardError(
+		f"{name} cannot be safely run for an owner-scoped user because its query does not "
+		"expose a server-enforceable owner filter."
+	)
 
 
 def report_names() -> list[str]:

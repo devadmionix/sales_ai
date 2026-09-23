@@ -52,6 +52,45 @@ assert set(SUBMITTABLE) <= set(SPECS), "SUBMITTABLE has a DocType the agent cann
 MAX_REASON = 500
 
 
+def is_submittable(doctype: str) -> bool:
+	"""Whether ERPNext itself treats this DocType as submittable.
+
+	Dynamic check against the DocType meta (`is_submittable`), so a custom
+	submittable DocType is recognised without hardcoding. This answers only
+	"does Frappe provide a Submit workflow" — whether *this assistant* may
+	submit it is still decided by `_submittable` (allowlist) plus the
+	permission gates in `submit_document`.
+	"""
+	try:
+		return bool(frappe.get_meta(doctype).is_submittable)
+	except Exception:
+		return False
+
+
+def submit_after_create(doctype: str, name: str, *, tool: str) -> dict[str, Any]:
+	"""Submit a freshly created record, without failing the creation on refusal.
+
+	Used by create flows that were asked to "create and submit". The record
+	already exists as a draft at this point. If submission is not allowed —
+	no permission, wrong state, workflow block — the draft is kept and the
+	reason is returned instead of raising, so the caller can report
+	"created YES, submitted NO".
+
+	Returns either the `submit_document` result, or
+	`{"submitted": False, "name": ..., "status": "Draft", "reason": ...}`.
+	Raises nothing for authorization/state failures.
+	"""
+	try:
+		return submit_document(doctype, name, tool=tool)
+	except (GuardError, frappe.ValidationError, frappe.PermissionError) as exc:
+		return {
+			"submitted": False,
+			"name": name,
+			"status": "Draft",
+			"reason": str(exc),
+		}
+
+
 def submit_document(doctype: str, name: str, *, tool: str) -> dict[str, Any]:
 	"""Submit a draft, turning it from a working paper into a commitment."""
 	_submittable(doctype)
@@ -63,11 +102,19 @@ def submit_document(doctype: str, name: str, *, tool: str) -> dict[str, Any]:
 
 	doc = may_change(doctype, name, "submit", "Submit")
 
+	if doc.docstatus == 1:
+		raise GuardError(f"{doctype} {name} is already submitted.")
+	if doc.docstatus == 2:
+		raise GuardError(f"{doctype} {name} is cancelled and cannot be submitted.")
 	if doc.docstatus != 0:
 		raise GuardError(
 			f"{doctype} {name} is {_state(doc)} and cannot be submitted again."
 		)
 
+	# Runs as the current user, under their permissions. No ignore_permissions,
+	# no set_user("Administrator") — `submit()` re-checks DocPerm, User
+	# Permissions, ownership, workflow and every on_submit hook itself, so a
+	# user who may not submit in the desk may not submit through the AI either.
 	doc.submit()
 	doc.add_comment("Info", _("Submitted by Sales AI for {0}.").format(frappe.session.user))
 
@@ -162,6 +209,10 @@ def _submittable(doctype: str) -> None:
 		raise GuardError(
 			f"{doctype!r} is not a document the assistant can submit or cancel. "
 			f"Available: {', '.join(SUBMITTABLE)}."
+		)
+	if not is_submittable(doctype):
+		raise GuardError(
+			f"{doctype!r} does not support submission in ERPNext."
 		)
 
 

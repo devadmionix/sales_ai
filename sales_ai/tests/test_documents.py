@@ -22,7 +22,14 @@ from frappe.utils import add_days, nowdate
 
 from sales_ai import tools
 from sales_ai.guard import GuardError, read_document
-from sales_ai.guard.documents import SUBMITTABLE, cancel_document, preview, submit_document
+from sales_ai.guard.documents import (
+	SUBMITTABLE,
+	cancel_document,
+	is_submittable,
+	preview,
+	submit_after_create,
+	submit_document,
+)
 from sales_ai.guard.specs import SPECS
 
 CUSTOMER = "ABC Medical Store"
@@ -273,3 +280,129 @@ class TestDocuments(IntegrationTestCase):
 			"changes",
 		)
 		self.assertIn("Duplicate of QTN-1.", changes)
+
+	# -- submission support is dynamic, not hardcoded ----------------------------------
+
+	def test_submission_support_is_determined_dynamically(self) -> None:
+		"""`is_submittable` answers from ERPNext's own DocType meta, so a custom
+		submittable DocType is recognised without a code change."""
+		self.assertTrue(is_submittable("Quotation"))
+		self.assertTrue(is_submittable("Sales Order"))
+		self.assertTrue(is_submittable("Sales Invoice"))
+		self.assertTrue(is_submittable("Delivery Note"))
+		self.assertFalse(is_submittable("Lead"))
+		self.assertFalse(is_submittable("No Such DocType"))
+
+	def test_submit_after_create_never_fails_the_creation(self) -> None:
+		"""Create-and-submit is best-effort: a refusal keeps the draft and returns
+		the reason instead of raising, so the creation itself is never lost."""
+		outcome = submit_after_create(
+			"Quotation", "SAL-QTN-DOES-NOT-EXIST", tool="submit_document"
+		)
+
+		self.assertFalse(outcome["submitted"])
+		self.assertEqual(outcome["status"], "Draft")
+		self.assertTrue(outcome["reason"])
+
+	def test_create_record_submit_on_non_submittable_reports_a_draft(self) -> None:
+		"""`create_record(submit=True)` on a DocType with no Submit workflow
+		keeps the created record and says so honestly instead of failing."""
+		from sales_ai.guard.writes import create_record
+
+		result = create_record(
+			"Lead", {"first_name": "SubmitProbe"}, submit=True, tool="create_record"
+		)
+
+		self.assertEqual(result["created"], "Lead")
+		self.assertFalse(result["submitted"])
+		self.assertEqual(result["status"], "Draft")
+		self.assertTrue(frappe.db.exists("Lead", result["name"]))
+
+	# -- the acceptance criteria -------------------------------------------------------
+
+	def test_an_already_submitted_quotation_says_so(self) -> None:
+		quotation = self._draft()
+		submit_document("Quotation", quotation.name, tool="submit_document")
+
+		with self.assertRaises(GuardError) as caught:
+			submit_document("Quotation", quotation.name, tool="submit_document")
+
+		self.assertIn("already submitted", str(caught.exception))
+
+	def test_a_cancelled_quotation_cannot_be_submitted(self) -> None:
+		quotation = self._draft()
+		submit_document("Quotation", quotation.name, tool="submit_document")
+		cancel_document("Quotation", quotation.name, "No longer needed.", tool="cancel_document")
+
+		with self.assertRaises(GuardError) as caught:
+			submit_document("Quotation", quotation.name, tool="submit_document")
+
+		self.assertIn("cancelled", str(caught.exception))
+
+	def test_a_user_without_submit_permission_keeps_the_draft(self) -> None:
+		"""A Sales User may not submit through the AI: the refusal names the
+		missing permission, the draft survives, and the creation is reported
+		as created-but-not-submitted rather than failed."""
+		email = "submit-probe-user@example.com"
+		if not frappe.db.exists("User", email):
+			frappe.get_doc(
+				{
+					"doctype": "User",
+					"email": email,
+					"first_name": "submit-probe-user",
+					"user_type": "System User",
+					"roles": [{"role": "Sales User"}],
+				}
+			).insert(ignore_permissions=True)
+
+		quotation = self._draft()
+		try:
+			frappe.set_user(email)
+
+			with self.assertRaises(GuardError) as caught:
+				submit_document("Quotation", quotation.name, tool="submit_document")
+			self.assertIn("submit", str(caught.exception).lower())
+
+			outcome = submit_after_create(
+				"Quotation", quotation.name, tool="submit_document"
+			)
+			self.assertFalse(outcome["submitted"])
+			self.assertEqual(outcome["status"], "Draft")
+			self.assertTrue(outcome["reason"])
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(frappe.db.get_value("Quotation", quotation.name, "docstatus"), 0)
+
+	# -- the most important requirement, asserted against the live source --------------
+
+	def test_submit_paths_never_bypass_permissions(self) -> None:
+		"""The AI must never gain permissions merely by acting through the AI.
+		No `ignore_permissions`, no Administrator switch and no session-user
+		reassignment anywhere in the submit/create-and-submit code paths —
+		comments stripped first, so a comment describing the rule is not
+		mistaken for breaking it."""
+		import os
+		import tokenize
+
+		guard = os.path.join(os.path.dirname(__file__), "..", "guard")
+		for module in ("documents.py", "quotations.py", "writes.py"):
+			with self.subTest(module=module):
+				with open(os.path.join(guard, module), "rb") as f:
+					code = "".join(
+						token.string
+						for token in tokenize.tokenize(f.readline)
+						if token.type
+						not in (
+							tokenize.COMMENT,
+							tokenize.ENCODING,
+							tokenize.ENDMARKER,
+							tokenize.NL,
+							tokenize.NEWLINE,
+							tokenize.INDENT,
+							tokenize.DEDENT,
+						)
+					)
+				self.assertNotIn("ignore_permissions", code)
+				self.assertNotIn("set_user", code)
+				self.assertNotIn("session.user=", code.replace(" ", ""))

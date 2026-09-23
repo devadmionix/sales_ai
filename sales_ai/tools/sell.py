@@ -139,7 +139,8 @@ tell the user what it comes to — do not draft a quotation to find out the pric
 
 The quotation is saved as a draft: it is not sent to anyone, commits nothing, and can be
 deleted. ERPNext works out the rates and totals, exactly as price_items does. Submitting it
-is a separate step.
+is a separate step (submit_quotation, or pass submit=true here when the user says
+"create and submit", "submit it", or "create this as submitted").
 
 At most {MAX_LINES} lines.""",
 )
@@ -150,6 +151,12 @@ def draft_quotation(
 	price_list: Annotated[str | None, "Selling price list to quote from."] = None,
 	date: Annotated[str | None, "Date of the quotation (YYYY-MM-DD). Defaults to today."] = None,
 	valid_till: Annotated[str | None, "Date the quotation expires (YYYY-MM-DD)."] = None,
+	submit: Annotated[
+		bool,
+		"When true, submit the quotation right after creating it, under the current "
+		"user's own submit permission. If they may not submit, it stays a draft and "
+		"the reason is returned. Use when the user says 'create and submit'.",
+	] = False,
 ) -> dict[str, Any]:
 	return quotations.draft_quotation(
 		[line.model_dump(exclude_none=True) for line in lines],
@@ -158,6 +165,7 @@ def draft_quotation(
 		price_list=price_list,
 		date=date,
 		valid_till=valid_till,
+		submit=bool(submit),
 		tool="draft_quotation",
 	)
 
@@ -193,18 +201,24 @@ def submit_quotation(
 Use this when the customer has accepted the quotation. ERPNext copies the lines and
 totals across, so the order agrees with the quotation rather than being re-priced.
 
-The sales order is left as a DRAFT. It reserves no stock and commits no delivery, so do
-not tell the user the order is placed. Submitting it is submit_document, and only if the
-user asks for it — never chain the two without being told to.
+The sales order is left as a DRAFT unless submit is set. It reserves no stock and commits
+no delivery, so do not tell the user the order is placed unless it was actually submitted.
+Pass submit=true only when the user says "create and submit" or "submit it" — never chain
+the two without being told to. A refused submission keeps the draft and returns the reason.
 
 The quotation must be submitted, and must be made out to a Customer rather than a lead.""",
 )
 def convert_quotation_to_order(
 	name: Annotated[str, "The submitted quotation's ID."],
 	delivery_date: Annotated[str, "When the customer expects delivery (YYYY-MM-DD)."],
+	submit: Annotated[
+		bool,
+		"When true, submit the new sales order right after creating it, under the "
+		"current user's own submit permission.",
+	] = False,
 ) -> dict[str, Any]:
 	return quotations.convert_to_sales_order(
-		name, delivery_date=delivery_date, tool="convert_quotation_to_order"
+		name, delivery_date=delivery_date, submit=bool(submit), tool="convert_quotation_to_order"
 	)
 
 

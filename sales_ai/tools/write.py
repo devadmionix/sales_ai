@@ -56,6 +56,11 @@ duplicate is refused and the existing record named, so there is no need to searc
 The record is created as the current user, so it lands in their company and territory
 automatically — do not try to set a company.
 
+When the user says "create and submit", "submit it", or "create this as submitted",
+pass submit=true: the record is still created first as a draft, then submitted under
+the current user's own submit permission. If they may not submit, it stays a draft
+and the reason is returned — the creation itself is kept.
+
 Fields you may set, `*` where required, by record type:
 {_CREATABLE}""",
 )
@@ -65,8 +70,14 @@ def create_record(
 		dict[str, Scalar],
 		"Field values to set. Only the fields listed for this record type are accepted.",
 	],
+	submit: Annotated[
+		bool,
+		"When true, submit the record right after creating it, under the current "
+		"user's own submit permission. Only applies where ERPNext provides a "
+		"Submit workflow; otherwise the record stays as created.",
+	] = False,
 ) -> dict[str, Any]:
-	return writes.create_record(doctype, values, tool="create_record")
+	return writes.create_record(doctype, values, submit=bool(submit), tool="create_record")
 
 
 @tool(
