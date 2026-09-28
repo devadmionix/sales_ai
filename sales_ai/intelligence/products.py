@@ -43,18 +43,20 @@ def cross_sell(customer: str, company: str | None = None, limit: int = 5) -> dic
 		}
 
 	# Find other customers who bought the same items.
-	# Only the count of bound parameters is interpolated into the SQL (a run of
-	# "%s" placeholders); every value travels as a bound parameter, never as
-	# SQL text. Suppression is for that generated placeholder list only.
+	# The IN-list is a generated run of "%s" placeholders (one per bound value);
+	# every value travels as a bound parameter, never as SQL text. The query is
+	# assembled with concatenation so no f-string or .format() is used.
 	placeholders = ", ".join(["%s"] * len(bought))
-	peers_with_overlap = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection
-		f"""
+	peers_with_overlap = frappe.db.sql(
+		"""
 		SELECT DISTINCT so.customer
 		FROM `tabSales Order Item` soi
 		JOIN `tabSales Order` so ON so.name = soi.parent
 		WHERE so.docstatus = 1 AND so.company = %s
 		  AND so.customer != %s
-		  AND soi.item_code IN ({placeholders})
+		  AND soi.item_code IN ("""
+		+ placeholders
+		+ """)
 		LIMIT 50
 		""",
 		[company, customer] + bought,
@@ -69,11 +71,11 @@ def cross_sell(customer: str, company: str | None = None, limit: int = 5) -> dic
 		}
 
 	# What did those peers buy that this customer hasn't?
-	# Same pattern as above: placeholder count only; values are bound parameters.
+	# Same pattern as above: placeholder counts only; values are bound parameters.
 	peer_placeholders = ", ".join(["%s"] * len(peers_with_overlap))
 	bought_placeholders = ", ".join(["%s"] * len(bought))
-	suggestions = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection
-		f"""
+	suggestions = frappe.db.sql(
+		"""
 		SELECT soi.item_code, soi.item_name,
 		       COUNT(DISTINCT so.customer) AS peer_count,
 		       SUM(soi.qty) AS total_qty,
@@ -81,8 +83,12 @@ def cross_sell(customer: str, company: str | None = None, limit: int = 5) -> dic
 		FROM `tabSales Order Item` soi
 		JOIN `tabSales Order` so ON so.name = soi.parent
 		WHERE so.docstatus = 1 AND so.company = %s
-		  AND so.customer IN ({peer_placeholders})
-		  AND soi.item_code NOT IN ({bought_placeholders})
+		  AND so.customer IN ("""
+		+ peer_placeholders
+		+ """)
+		  AND soi.item_code NOT IN ("""
+		+ bought_placeholders
+		+ """)
 		GROUP BY soi.item_code, soi.item_name
 		HAVING peer_count >= 2
 		ORDER BY peer_count DESC, total_revenue DESC

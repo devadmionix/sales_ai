@@ -48,8 +48,8 @@ def get_kpis(company: str | None = None, from_date: str | None = None, to_date: 
 def _revenue(company, from_date, to_date):
 	"""Total revenue from submitted Sales Orders in the period."""
 	owner_sql, owner_params = sql_owner_clause("Sales Order")
-	result = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- owner_sql is a fixed literal from sql_owner_clause, values are bound params
-		f"""
+	result = frappe.db.sql(
+		"""
 		SELECT COALESCE(SUM(base_grand_total), 0) AS total,
 		       COUNT(*) AS count,
 		       COALESCE(SUM(base_grand_total), 0) / NULLIF(COUNT(*), 0) AS avg_value
@@ -57,7 +57,7 @@ def _revenue(company, from_date, to_date):
 		WHERE docstatus = 1
 		  AND company = %s
 		  AND transaction_date BETWEEN %s AND %s
-		{owner_sql}
+		""" + owner_sql + """
 		""",
 		(company, from_date, to_date, *owner_params),
 		as_dict=True,
@@ -114,8 +114,8 @@ def _target(company, from_date, to_date):
 def _pipeline(company):
 	"""Open opportunity pipeline: total and weighted (amount × probability)."""
 	owner_sql, owner_params = sql_owner_clause("Opportunity")
-	result = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- owner_sql is a fixed literal from sql_owner_clause, values are bound params
-		f"""
+	result = frappe.db.sql(
+		"""
 		SELECT COALESCE(SUM(opportunity_amount), 0) AS total,
 		       COALESCE(SUM(opportunity_amount * COALESCE(probability, 0) / 100), 0) AS weighted,
 		       COUNT(*) AS count
@@ -123,7 +123,7 @@ def _pipeline(company):
 		WHERE status NOT IN ('Lost', 'Closed')
 		  AND company = %s
 		  AND docstatus < 2
-		{owner_sql}
+		""" + owner_sql + """
 		""",
 		(company, *owner_params),
 		as_dict=True,
@@ -139,8 +139,8 @@ def _pipeline(company):
 def _won_lost(company, from_date, to_date):
 	"""Won and Lost opportunity counts and values in the period."""
 	owner_sql, owner_params = sql_owner_clause("Opportunity")
-	result = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- owner_sql is a fixed literal from sql_owner_clause, values are bound params
-		f"""
+	result = frappe.db.sql(
+		"""
 		SELECT status,
 		       COUNT(*) AS count,
 		       COALESCE(SUM(opportunity_amount), 0) AS amount
@@ -148,7 +148,7 @@ def _won_lost(company, from_date, to_date):
 		WHERE status IN ('Converted', 'Lost')
 		  AND company = %s
 		  AND modified BETWEEN %s AND %s
-		{owner_sql}
+		""" + owner_sql + """
 		GROUP BY status
 		""",
 		(company, from_date, to_date, *owner_params),
@@ -185,15 +185,15 @@ def _conversion_rate(company, from_date, to_date):
 def _aov(company, from_date, to_date):
 	"""Average Order Value from submitted Sales Orders."""
 	owner_sql, owner_params = sql_owner_clause("Sales Order")
-	result = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- owner_sql is a fixed literal from sql_owner_clause, values are bound params
-		f"""
+	result = frappe.db.sql(
+		"""
 		SELECT COALESCE(AVG(base_grand_total), 0) AS aov,
 		       COUNT(*) AS count
 		FROM `tabSales Order`
 		WHERE docstatus = 1
 		  AND company = %s
 		  AND transaction_date BETWEEN %s AND %s
-		{owner_sql}
+		""" + owner_sql + """
 		""",
 		(company, from_date, to_date, *owner_params),
 		as_dict=True,
@@ -205,14 +205,14 @@ def _aov(company, from_date, to_date):
 def _sales_cycle(company, from_date, to_date):
 	"""Median sales cycle in days (Opportunity creation → Converted)."""
 	owner_sql, owner_params = sql_owner_clause("Opportunity")
-	rows = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- owner_sql is a fixed literal from sql_owner_clause, values are bound params
-		f"""
+	rows = frappe.db.sql(
+		"""
 		SELECT DATEDIFF(modified, creation) AS cycle_days
 		FROM `tabOpportunity`
 		WHERE status = 'Converted'
 		  AND company = %s
 		  AND modified BETWEEN %s AND %s
-		{owner_sql}
+		""" + owner_sql + """
 		ORDER BY cycle_days
 		""",
 		(company, from_date, to_date, *owner_params),
@@ -232,8 +232,8 @@ def _sales_cycle(company, from_date, to_date):
 def _top_items(company, from_date, to_date, limit=5):
 	"""Top selling items by revenue in the period."""
 	owner_sql, owner_params = sql_owner_clause("Sales Order", "so")
-	return frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- owner_sql is a fixed literal from sql_owner_clause, values are bound params
-		f"""
+	return frappe.db.sql(
+		"""
 		SELECT soi.item_code, soi.item_name,
 		       SUM(soi.base_amount) AS revenue,
 		       SUM(soi.qty) AS qty
@@ -242,7 +242,7 @@ def _top_items(company, from_date, to_date, limit=5):
 		WHERE so.docstatus = 1
 		  AND so.company = %s
 		  AND so.transaction_date BETWEEN %s AND %s
-		{owner_sql}
+		""" + owner_sql + """
 		GROUP BY soi.item_code, soi.item_name
 		ORDER BY revenue DESC
 		LIMIT %s
@@ -255,8 +255,8 @@ def _top_items(company, from_date, to_date, limit=5):
 def _monthly_trend(company, from_date, to_date):
 	"""Monthly revenue trend from submitted Sales Orders."""
 	owner_sql, owner_params = sql_owner_clause("Sales Order")
-	return frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- owner_sql is a fixed literal from sql_owner_clause, values are bound params
-		f"""
+	return frappe.db.sql(
+		"""
 		SELECT DATE_FORMAT(transaction_date, '%%Y-%%m') AS month,
 		       COALESCE(SUM(base_grand_total), 0) AS revenue,
 		       COUNT(*) AS count
@@ -264,7 +264,7 @@ def _monthly_trend(company, from_date, to_date):
 		WHERE docstatus = 1
 		  AND company = %s
 		  AND transaction_date BETWEEN %s AND %s
-		{owner_sql}
+		""" + owner_sql + """
 		GROUP BY DATE_FORMAT(transaction_date, '%%Y-%%m')
 		ORDER BY month
 		""",

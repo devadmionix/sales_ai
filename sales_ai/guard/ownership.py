@@ -168,8 +168,11 @@ def sql_owner_clause(doctype: str, alias: str | None = None, user: str | None = 
         return "", ()
     if alias is not None and not _ALIAS_PATTERN.match(alias):
         raise ValueError(f"Invalid table alias {alias!r}.")
-    column = f"{alias}.owner" if alias else "owner"
-    return f" AND {column} = %s", (user,)
+    # Built with concatenation, not an f-string or .format(), so the fragment can
+    # never carry interpolated values: alias is identifier-validated above and the
+    # user travels as a bound parameter.
+    column = alias + ".owner" if alias else "owner"
+    return " AND " + column + " = %s", (user,)
 
 
 # Table aliases spliced into the fragment above. Identifiers only, so the

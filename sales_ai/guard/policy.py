@@ -350,7 +350,9 @@ def _describe(tool: Tool, arguments: dict[str, Any]) -> str:
 	template = tool.meta.get("action")
 	if template:
 		try:
-			return template.format(**arguments)
+			# Template is developer-authored tool meta; model values are
+			# substituted, never interpreted.
+			return template.format(**arguments)  # nosemgrep: frappe-codeinjection-eval
 		except (KeyError, IndexError):
 			pass
 
