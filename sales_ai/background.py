@@ -74,7 +74,10 @@ def execute(
 	reference_name: str | None = None,
 ) -> None:
 	"""Worker entry point. Never raises: a failed job should leave a record, not a stack."""
-	frappe.set_user(run_as)
+	# A background worker has no session user, so it acts as the run's owner.
+	# run_as is fixed at enqueue time (never Administrator) and every write is
+	# still gated by the permission policy for that user.
+	frappe.set_user(run_as)  # nosemgrep: frappe-setuser
 	frappe.flags.sales_ai_unattended = True
 
 	_run(
@@ -118,7 +121,9 @@ def enqueue_answer(run: str, answers: dict[str, str]) -> None:
 
 def execute_answer(run: str, answers: dict[str, str], run_as: str) -> None:
 	"""Worker entry point for a parked run that has been answered."""
-	frappe.set_user(run_as)
+	# Same impersonation as above: run_as is the run owner's name, captured in
+	# enqueue_answer after verifying the clicker owns the run.
+	frappe.set_user(run_as)  # nosemgrep: frappe-setuser
 	frappe.flags.sales_ai_unattended = True
 	_run(orchestrator.resume_stream(run, answers, background=True), label=run)
 

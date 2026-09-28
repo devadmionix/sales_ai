@@ -115,7 +115,10 @@ def execute(
 	reference_name: str | None = None,
 ) -> None:
 	"""Worker entry point for a new run."""
-	frappe.set_user(run_as)
+	# The worker has no session, so it becomes the run's owner. run_as comes
+	# from the trigger/playbook configuration, never Administrator, and every
+	# tool call is re-gated by policy for that user.
+	frappe.set_user(run_as)  # nosemgrep: frappe-setuser
 	run = new_playbook_run(
 		playbook,
 		trigger=trigger,
@@ -161,7 +164,9 @@ def answer(playbook_run: str, reply: str) -> None:
 
 def resume(playbook_run: str, run_as: str) -> None:
 	"""Worker entry point for a run that was parked."""
-	frappe.set_user(run_as)
+	# Same impersonation as execute(): the parked run resumes as its owner,
+	# whose identity was fixed when the run was created.
+	frappe.set_user(run_as)  # nosemgrep: frappe-setuser
 	advance(playbook_run)
 
 

@@ -107,7 +107,9 @@ def _run_case(case: Any, agent_profile: str) -> Outcome:
 	was = frappe.session.user
 
 	try:
-		frappe.set_user(case.run_as or was)
+		# Each eval case runs as the user it names (a System Manager-only
+		# harness), and the original user is restored in the finally below.
+		frappe.set_user(case.run_as or was)  # nosemgrep: frappe-setuser
 		started = orchestrator.start(
 			case.prompt,
 			agent_profile=agent_profile,
@@ -124,7 +126,8 @@ def _run_case(case: Any, agent_profile: str) -> Outcome:
 		scored = metrics.failed_to_run(expectation, frappe.get_traceback(with_context=False))
 	finally:
 		frappe.db.rollback()
-		frappe.set_user(was)
+		# Restore the caller; pairs with the set_user above.
+		frappe.set_user(was)  # nosemgrep: frappe-setuser
 
 	return scored
 
