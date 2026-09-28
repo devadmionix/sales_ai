@@ -39,7 +39,7 @@ def _ensure_profile():
 
     # Required here because install/migrate steps run in one long transaction;
     # the shipped profile and settings pointer must be visible to later steps.
-    frappe.db.commit()
+    frappe.db.commit()  # nosemgrep: frappe-manual-commit
 
 
 def _create_profile(all_tools: list[str]) -> None:

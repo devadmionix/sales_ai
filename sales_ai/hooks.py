@@ -170,29 +170,42 @@ has_permission = {
 # ---------------
 # Hook on document methods and events
 
-# Sales AI Triggers watch every doctype. `dispatch` returns on a single cache read unless
-# a trigger has actually been configured for that doctype and event.
-doc_events = {
-	"*": {
-		"after_insert": "sales_ai.triggers.dispatch",
-		"on_update": "sales_ai.triggers.dispatch",
-		"on_submit": "sales_ai.triggers.dispatch",
-		"on_cancel": "sales_ai.triggers.dispatch",
-	},
-	# Amount-based submit approval. A sales user may submit these on their own
-	# only under the limit; at or above it a manager must submit. Runs in
-	# `before_submit` so the desk, the API and the chatbot all hit the same
-	# rule through the document controller.
-	"Quotation": {
-		"before_submit": "sales_ai.guard.submit_approval.enforce_submit_approval",
-	},
-	"Sales Order": {
-		"before_submit": "sales_ai.guard.submit_approval.enforce_submit_approval",
-	},
-	"Delivery Note": {
-		"before_submit": "sales_ai.guard.submit_approval.enforce_submit_approval",
-	},
+# Sales AI Triggers fire only for these sales-domain DocTypes. A wildcard hook
+# would run dispatch on every document operation site-wide; scoping to an
+# explicit list keeps shared-bench overhead to one cache read on relevant docs.
+# Keep in sync with SUPPORTED_DOCTYPES in
+# sales_ai/sales_ai/doctype/sales_ai_trigger/sales_ai_trigger.py.
+_TRIGGER_DOCTYPES = (
+	"Lead",
+	"Opportunity",
+	"Quotation",
+	"Sales Order",
+	"Sales Invoice",
+	"Delivery Note",
+	"Customer",
+	"Contact",
+	"Item",
+	"Item Price",
+	"Payment Entry",
+)
+
+_TRIGGER_HANDLERS = {
+	"after_insert": "sales_ai.triggers.dispatch",
+	"on_update": "sales_ai.triggers.dispatch",
+	"on_submit": "sales_ai.triggers.dispatch",
+	"on_cancel": "sales_ai.triggers.dispatch",
 }
+
+doc_events = {
+	doctype: dict(_TRIGGER_HANDLERS) for doctype in _TRIGGER_DOCTYPES
+}
+# Amount-based submit approval. A sales user may submit these on their own
+# only under the limit; at or above it a manager must submit. Runs in
+# `before_submit` so the desk, the API and the chatbot all hit the same
+# rule through the document controller.
+doc_events["Quotation"]["before_submit"] = "sales_ai.guard.submit_approval.enforce_submit_approval"
+doc_events["Sales Order"]["before_submit"] = "sales_ai.guard.submit_approval.enforce_submit_approval"
+doc_events["Delivery Note"]["before_submit"] = "sales_ai.guard.submit_approval.enforce_submit_approval"
 
 # Scheduled Tasks
 # ---------------

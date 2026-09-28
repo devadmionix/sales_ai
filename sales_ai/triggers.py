@@ -3,9 +3,9 @@
 
 """What makes the agent start working without being asked.
 
-`dispatch` is wired to every document event on the site, so the first thing it does on
-an ordinary save must be cheap: one cache read that returns nothing. Only a site that
-has actually configured a trigger pays for anything more.
+`dispatch` is wired to the sales-domain DocTypes listed in hooks.py, so the first
+thing it does on an ordinary save must be cheap: one cache read that returns
+nothing. Only a site that has actually configured a trigger pays for anything more.
 
 Three things stop a trigger from running away:
 
@@ -45,7 +45,7 @@ _BULK_FLAGS = ("in_migrate", "in_install", "in_patch", "in_import", "in_setup_wi
 
 
 def dispatch(doc: Any, method: str | None = None) -> None:
-	"""Document event hook, called for every doctype on the site."""
+	"""Document event hook, called for the sales-domain DocTypes in hooks.py."""
 	if any(frappe.flags.get(flag) for flag in _BULK_FLAGS):
 		return
 
@@ -128,7 +128,9 @@ def _passes(trigger: Any, doc: Any) -> bool:
 	try:
 		from frappe.utils.safe_exec import safe_eval
 
-		return bool(safe_eval(trigger.condition, eval_locals={"doc": doc.as_dict()}))
+		# Sandboxed evaluation of a System Manager-authored condition; doc data
+		# enters as values. Failures fail closed (trigger does not fire).
+		return bool(safe_eval(trigger.condition, eval_locals={"doc": doc.as_dict()}))  # nosemgrep: frappe-codeinjection-eval
 	except Exception:
 		frappe.log_error(title=f"Sales AI: trigger condition failed ({trigger.name})")
 		return False
@@ -185,7 +187,9 @@ def _job_id(trigger: Any, doc: Any) -> str:
 def _render(trigger: Any, doc: Any) -> str:
 	"""Build the instruction. The template is written by a System Manager, the data is not."""
 	try:
-		text = frappe.render_template(
+		# Template is authored by a System Manager; record fields enter only as
+		# context values, and output is truncated to MAX_PROMPT characters.
+		text = frappe.render_template(  # nosemgrep: frappe-ssti
 			trigger.prompt_template,
 			{"doc": doc.as_dict() if doc else None, "now": now_datetime()},
 		)

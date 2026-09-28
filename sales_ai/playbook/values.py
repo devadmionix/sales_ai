@@ -33,7 +33,9 @@ def evaluate(expression: str, context: dict[str, Any]) -> Any:
 	from frappe.utils.safe_exec import safe_eval
 
 	try:
-		return safe_eval(expression.strip(), eval_locals=dict(context))
+		# Sandboxed safe_eval only: no builtins, no imports, no attribute writes.
+		# Expressions are authored by System Managers; record data enters as values.
+		return safe_eval(expression.strip(), eval_locals=dict(context))  # nosemgrep: frappe-codeinjection-eval
 	except Exception as e:
 		raise StepError(_("The expression failed: {0}").format(str(e)[:200])) from e
 
@@ -44,7 +46,9 @@ def render(value: Any, context: dict[str, Any]) -> Any:
 		if "{{" not in value and "{%" not in value:
 			return value
 		try:
-			return frappe.render_template(value, context)
+			# Template text is authored by System Managers; untrusted record data
+			# enters only as render context values, never as template source.
+			return frappe.render_template(value, context)  # nosemgrep: frappe-ssti
 		except Exception as e:
 			raise StepError(_("A value could not be filled in: {0}").format(str(e)[:200])) from e
 	if isinstance(value, dict):

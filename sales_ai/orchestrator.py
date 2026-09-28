@@ -129,7 +129,7 @@ def _pump(
 			if background:
 				session_doc.set_transcript(_without_system(event.messages))
 				# The point of a checkpoint is to survive the process, so it must land.
-				frappe.db.commit()
+				frappe.db.commit()  # nosemgrep: frappe-manual-commit
 			continue
 
 		yield event

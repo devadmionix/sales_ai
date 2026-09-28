@@ -43,11 +43,11 @@ def cross_sell(customer: str, company: str | None = None, limit: int = 5) -> dic
 		}
 
 	# Find other customers who bought the same items.
-	# Safe by construction: only the count of bound parameters is formatted
-	# into the SQL (a run of "%s" placeholders); every value travels as a
-	# bound parameter, never as SQL text.
+	# Only the count of bound parameters is interpolated into the SQL (a run of
+	# "%s" placeholders); every value travels as a bound parameter, never as
+	# SQL text. Suppression is for that generated placeholder list only.
 	placeholders = ", ".join(["%s"] * len(bought))
-	peers_with_overlap = frappe.db.sql(
+	peers_with_overlap = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection
 		f"""
 		SELECT DISTINCT so.customer
 		FROM `tabSales Order Item` soi
@@ -72,7 +72,7 @@ def cross_sell(customer: str, company: str | None = None, limit: int = 5) -> dic
 	# Same pattern as above: placeholder count only; values are bound parameters.
 	peer_placeholders = ", ".join(["%s"] * len(peers_with_overlap))
 	bought_placeholders = ", ".join(["%s"] * len(bought))
-	suggestions = frappe.db.sql(
+	suggestions = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection
 		f"""
 		SELECT soi.item_code, soi.item_name,
 		       COUNT(DISTINCT so.customer) AS peer_count,

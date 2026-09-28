@@ -189,7 +189,9 @@ class SalesAIPlaybook(Document):
 
 def _check_expression(step, expression: str, label: str) -> None:
 	try:
-		compile((expression or "").strip(), "<playbook>", "eval")
+		# Syntax validation only: compile() never executes the expression.
+		# Execution happens later via sandboxed safe_eval in playbook/values.py.
+		compile((expression or "").strip(), "<playbook>", "eval")  # nosemgrep: frappe-codeinjection-eval
 	except SyntaxError as e:
 		frappe.throw(
 			_("Step {0}: the {1} is not a valid Python expression ({2}).").format(

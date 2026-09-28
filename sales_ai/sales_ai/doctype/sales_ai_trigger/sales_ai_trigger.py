@@ -8,6 +8,24 @@ from frappe.utils import now_datetime
 
 
 class SalesAITrigger(Document):
+	# DocTypes Sales AI Triggers can watch. Mirrors _TRIGGER_DOCTYPES in hooks.py;
+	# hooks are registered per-DocType so dispatch never runs site-wide.
+	SUPPORTED_DOCTYPES = frozenset(
+		{
+			"Lead",
+			"Opportunity",
+			"Quotation",
+			"Sales Order",
+			"Sales Invoice",
+			"Delivery Note",
+			"Customer",
+			"Contact",
+			"Item",
+			"Item Price",
+			"Payment Entry",
+		}
+	)
+
 	def validate(self) -> None:
 		self._check_run_as()
 		self._check_target()
@@ -52,6 +70,13 @@ class SalesAITrigger(Document):
 			)
 
 	def _check_document_event(self) -> None:
+		if self.reference_doctype not in self.SUPPORTED_DOCTYPES:
+			frappe.throw(
+				_("Triggers can watch {0}. {1} is outside the sales documents Sales AI handles.").format(
+					", ".join(sorted(self.SUPPORTED_DOCTYPES)), self.reference_doctype
+				),
+				title=_("Unsupported Document"),
+			)
 		if frappe.db.get_value("DocType", self.reference_doctype, "module") == "Sales AI":
 			# Otherwise the agent's own runs and logs would start more runs.
 			frappe.throw(

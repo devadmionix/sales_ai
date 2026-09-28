@@ -2,6 +2,17 @@
 
 AI powered sales application
 
+### Screenshots
+
+> Marketplace listing requires screenshots. Capture the desk at 1440px wide and
+> place the PNGs in `screenshots/` (see `screenshots/README.md`), then upload the
+> same files to the Frappe Cloud marketplace listing.
+
+- Chat panel: `screenshots/01-chat-panel.png`
+- Sales Dashboard: `screenshots/02-sales-dashboard.png`
+- Playbook: `screenshots/03-playbook.png`
+- Trigger: `screenshots/04-trigger.png`
+
 ### Installation
 
 You can install this app using the [bench](https://github.com/frappe/bench) CLI:

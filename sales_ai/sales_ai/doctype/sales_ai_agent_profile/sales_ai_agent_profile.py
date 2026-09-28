@@ -8,6 +8,17 @@ from frappe.model.document import Document
 from sales_ai import tools
 
 
+@frappe.whitelist()
+def list_tools() -> list[str]:
+	"""Every registered tool, for prefilling a new agent profile.
+
+	Requires Agent Profile read access: the names alone decide what a profile
+	can hand out, so only someone allowed to see the profiles may list them.
+	"""
+	frappe.has_permission("Sales AI Agent Profile", "read", throw=True)
+	return tools.names()
+
+
 class SalesAIAgentProfile(Document):
 	def validate(self) -> None:
 		self._check_tools()
