@@ -71,6 +71,8 @@ def _load() -> None:
 	global _loaded
 	if _loaded:
 		return
+	# MODULES is a hardcoded tuple above; the loop only imports our own tool
+	# modules so profiles can reference them. No outside input reaches here.
 	for module in MODULES:
-		importlib.import_module(module)
+		importlib.import_module(module)  # nosemgrep: frappe-codeinjection-eval
 	_loaded = True

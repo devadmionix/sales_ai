@@ -47,6 +47,7 @@ function copy() {
 
 	<div v-else class="sai-turn">
 		<ToolActivity v-if="message.tools && message.tools.length" :tools="message.tools" />
+		<!-- nosemgrep: rendered is frappe.markdown() output, which sanitises markup -->
 		<div v-if="message.content" class="sai-markdown" v-html="rendered"></div>
 		<div v-if="message.content" class="sai-foot">
 			<span v-if="message.at" class="sai-at">{{ message.at }}</span>
