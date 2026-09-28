@@ -111,12 +111,12 @@ ROLE_PERMISSIONS: dict[str, dict[str, dict[str, Any]]] = {
         },
         "Quotation": {
             "read": True, "create": True, "write": True, "delete": True,
-            "submit": False, "cancel": False, "report": True,
+            "submit": True, "cancel": False, "report": True,
             "scope": "own",
         },
         "Sales Order": {
             "read": True, "create": True, "write": True, "delete": True,
-            "submit": False, "cancel": False, "report": True,
+            "submit": True, "cancel": False, "report": True,
             "scope": "own",
         },
         "Sales Invoice": {
@@ -126,7 +126,7 @@ ROLE_PERMISSIONS: dict[str, dict[str, dict[str, Any]]] = {
         },
         "Delivery Note": {
             "read": True, "create": False, "write": False, "delete": False,
-            "submit": False, "cancel": False, "report": True,
+            "submit": True, "cancel": False, "report": True,
             "scope": "own",
         },
         "Customer": {
@@ -807,6 +807,11 @@ _SUBMIT_CANCEL = frozenset({
     "submit_document", "cancel_document",
 })
 
+# Sales Users may submit (within the amount-approval limit) but never cancel.
+_SUBMIT_ONLY = frozenset({
+    "submit_document",
+})
+
 _PORTAL_TOOLS = frozenset({
     "register_customer", "my_account",
 })
@@ -814,11 +819,13 @@ _PORTAL_TOOLS = frozenset({
 # -- per-role access ---------------------------------------------------------
 
 ROLE_TOOL_ACCESS: dict[str, frozenset[str]] = {
-    # Sales User: full CRM + selling workflow, no submit/cancel, no manager brief
+    # Sales User: full CRM + selling workflow, submit (within the approval
+    # limit) but no cancel, no manager brief
     "Sales User": (
         _READ_TOOLS | _WRITE_TOOLS | _SELL_TOOLS_READ | _SELL_TOOLS_WRITE
         | _LEAD_TOOLS | _EMAIL_TOOLS | _FOLLOWUP_TOOLS | _ANALYSE_TOOLS
         | _ADVISOR_TOOLS | _INSIGHT_TOOLS | _LINE_TOOLS
+        | _SUBMIT_ONLY
     ),
 
     # Sales Manager: everything a Sales User gets, plus submit/cancel and manager brief

@@ -178,7 +178,20 @@ doc_events = {
 		"on_update": "sales_ai.triggers.dispatch",
 		"on_submit": "sales_ai.triggers.dispatch",
 		"on_cancel": "sales_ai.triggers.dispatch",
-	}
+	},
+	# Amount-based submit approval. A sales user may submit these on their own
+	# only under the limit; at or above it a manager must submit. Runs in
+	# `before_submit` so the desk, the API and the chatbot all hit the same
+	# rule through the document controller.
+	"Quotation": {
+		"before_submit": "sales_ai.guard.submit_approval.enforce_submit_approval",
+	},
+	"Sales Order": {
+		"before_submit": "sales_ai.guard.submit_approval.enforce_submit_approval",
+	},
+	"Delivery Note": {
+		"before_submit": "sales_ai.guard.submit_approval.enforce_submit_approval",
+	},
 }
 
 # Scheduled Tasks

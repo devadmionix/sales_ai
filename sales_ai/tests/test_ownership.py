@@ -53,6 +53,28 @@ class TestSalesAIOwnership(FrappeTestCase):
 	def test_create_is_left_to_native_frappe_owner_assignment(self):
 		doc = frappe._dict({"doctype": "Lead", "name": "LEAD-NEW"})
 		with patch.object(ownership, "get_user_scope", return_value="own"):
-			self.assertIsNone(\
+			# Abstaining is an explicit True: Frappe treats any falsy controller
+			# return (including None) as a denial.
+			self.assertTrue(\
 				ownership.has_permission(doc, "user1@example.com", "create")\
+			)
+
+	def test_abstention_is_an_explicit_true(self):
+		doc = frappe._dict({"doctype": "Lead", "name": "LEAD-NEW"})
+		with patch.object(ownership, "get_user_scope", return_value="team"):
+			self.assertTrue(\
+				ownership.has_permission(doc, "user1@example.com", "read")\
+			)
+
+	def test_hook_accepts_frappe_controller_kwargs(self):
+		# Frappe invokes controller hooks as frappe.call(method, doc=doc,
+		# ptype=ptype, user=user, debug=debug). Unknown kwargs are dropped,
+		# so the permission type must arrive via `ptype`.
+		doc = frappe._dict({"doctype": "Lead", "name": "LEAD-OTHER"})
+		with (\
+			patch.object(ownership, "get_user_scope", return_value="own"),\
+			patch.object(frappe.db, "get_value", return_value="user2@example.com"),\
+		):
+			self.assertFalse(
+				ownership.has_permission(doc=doc, ptype="write", user="user1@example.com", debug=True)
 			)

@@ -103,39 +103,49 @@ del _doctype, _slug
 def has_permission(
     doc: Any | None = None,
     user: str | None = None,
-    permission_type: str = "read",
-) -> bool | None:
+    ptype: str = "read",
+    debug: bool = False,
+) -> bool:
     """Enforce ownership for direct document operations.
 
-    ``None`` is intentional: Frappe still evaluates its standard Role/User Permission
-    rules.  This hook only adds the Sales AI ownership restriction.
+    The parameter is named ``ptype`` (not ``permission_type``) because Frappe
+    invokes controller hooks as ``frappe.call(method, doc=doc, ptype=ptype,
+    user=user, debug=debug)`` and drops kwargs the function does not declare —
+    a differently-named parameter would silently stay at its default and every
+    check would be evaluated as a read.
+
+    ``True`` abstains and lets Frappe's normal Role/User Permission rules
+    decide; only an owner-mismatch returns ``False``. (Frappe treats any
+    falsy return — including ``None`` — as a denial, so abstaining must be
+    an explicit ``True``.)
     """
     user = user or frappe.session.user
     if isinstance(doc, str):
         # A few Frappe versions may pass the document name to the hook.  The hook is
         # registered per DocType, so there is no reliable DocType on a bare name; let
         # native Frappe handling decide in that case.
-        return None
+        return True
 
     doctype = getattr(doc, "doctype", None)
 
-    if not doctype or permission_type not in DOCUMENT_ACTIONS:
-        return None
+    if not doctype or ptype not in DOCUMENT_ACTIONS:
+        return True
     if not is_owner_restricted(user, doctype):
-        return None
+        return True
 
     name = getattr(doc, "name", None)
     if not name:
-        return None
+        # A new document has no owner yet — Frappe assigns it on insert.
+        return True
 
     try:
         owner = frappe.db.get_value(doctype, name, "owner")
     except Exception:
-        return None
+        return True
 
     if not owner:
         # Let native Frappe permission handling decide whether the record exists/accesses.
-        return None
+        return True
 
     return owner == user
 

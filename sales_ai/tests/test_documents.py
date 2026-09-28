@@ -339,10 +339,55 @@ class TestDocuments(IntegrationTestCase):
 
 		self.assertIn("cancelled", str(caught.exception))
 
-	def test_a_user_without_submit_permission_keeps_the_draft(self) -> None:
-		"""A Sales User may not submit through the AI: the refusal names the
-		missing permission, the draft survives, and the creation is reported
-		as created-but-not-submitted rather than failed."""
+	def test_sales_user_can_submit_low_value_own_quotation(self) -> None:
+		"""A Sales User submitting their own quotation under the approval limit
+		gets a submitted document — the happy path of the new rule."""
+		email = self._sales_user()
+		name = self._draft_for(email, qty=1)  # 1 x AI-GADGET = 2500 < 5000
+
+		try:
+			frappe.set_user(email)
+			result = submit_document("Quotation", name, tool="submit_document")
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(result["submitted"], "Quotation")
+		self.assertEqual(frappe.db.get_value("Quotation", name, "docstatus"), 1)
+
+	def test_high_value_quotation_needs_manager_approval(self) -> None:
+		"""At or above the limit a sales user's submission is refused with a
+		reason that names the remedy; the draft survives; and a manager's
+		submission — which IS the approval — goes through."""
+		email = self._sales_user()
+		name = self._draft_for(email, qty=3)  # 3 x AI-GADGET = 7500 >= 5000
+
+		try:
+			frappe.set_user(email)
+
+			with self.assertRaises(frappe.ValidationError) as caught:
+				submit_document("Quotation", name, tool="submit_document")
+			self.assertIn("Sales Manager", str(caught.exception))
+
+			outcome = submit_after_create(
+				"Quotation", name, tool="submit_document"
+			)
+			self.assertFalse(outcome["submitted"])
+			self.assertEqual(outcome["status"], "Draft")
+			self.assertTrue(outcome["reason"])
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(frappe.db.get_value("Quotation", name, "docstatus"), 0)
+
+		# The manager approves by submitting.
+		frappe.set_user("Administrator")
+		try:
+			submit_document("Quotation", name, tool="submit_document")
+		finally:
+			frappe.set_user("Administrator")
+		self.assertEqual(frappe.db.get_value("Quotation", name, "docstatus"), 1)
+
+	def _sales_user(self) -> str:
 		email = "submit-probe-user@example.com"
 		if not frappe.db.exists("User", email):
 			frappe.get_doc(
@@ -354,25 +399,34 @@ class TestDocuments(IntegrationTestCase):
 					"roles": [{"role": "Sales User"}],
 				}
 			).insert(ignore_permissions=True)
+		return email
 
-		quotation = self._draft()
-		try:
-			frappe.set_user(email)
-
-			with self.assertRaises(GuardError) as caught:
-				submit_document("Quotation", quotation.name, tool="submit_document")
-			self.assertIn("submit", str(caught.exception).lower())
-
-			outcome = submit_after_create(
-				"Quotation", quotation.name, tool="submit_document"
-			)
-			self.assertFalse(outcome["submitted"])
-			self.assertEqual(outcome["status"], "Draft")
-			self.assertTrue(outcome["reason"])
-		finally:
-			frappe.set_user("Administrator")
-
-		self.assertEqual(frappe.db.get_value("Quotation", quotation.name, "docstatus"), 0)
+	def _draft_for(self, owner: str, qty: float) -> str:
+		"""A priced draft owned by the given user, against a customer they
+		also own — so ERPNext's native party checks pass for them exactly as
+		they would for a real sales user working their own pipeline.
+		Ownership is assigned directly so the test does not depend on the
+		user's own pricing permissions; what matters is who submits, not
+		who typed the lines."""
+		customer = frappe.get_doc(
+			{
+				"doctype": "Customer",
+				"customer_name": f"Submit Gate Probe {qty:g}",
+				"customer_group": "Commercial",
+				"territory": "India",
+			}
+		).insert().name
+		frappe.db.set_value("Customer", customer, "owner", owner)
+		name = frappe.get_doc(
+			{
+				"doctype": "Quotation",
+				"quotation_to": "Customer",
+				"party_name": customer,
+				"items": [{"item_code": ITEM, "qty": qty}],
+			}
+		).insert().name
+		frappe.db.set_value("Quotation", name, "owner", owner)
+		return name
 
 	# -- the most important requirement, asserted against the live source --------------
 

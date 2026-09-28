@@ -78,8 +78,10 @@ class TestRBACMatrix(IntegrationTestCase):
     def test_sales_user_can_create_quotation(self):
         self.assertTrue(ROLE_PERMISSIONS["Sales User"]["Quotation"]["create"])
 
-    def test_sales_user_cannot_submit_quotation(self):
-        self.assertFalse(ROLE_PERMISSIONS["Sales User"]["Quotation"]["submit"])
+    def test_sales_user_can_submit_quotation(self):
+        # The chatbot matrix allows it; the amount-approval gate in
+        # `guard.submit_approval` still caps self-submission at the limit.
+        self.assertTrue(ROLE_PERMISSIONS["Sales User"]["Quotation"]["submit"])
 
     def test_sales_user_cannot_cancel_quotation(self):
         self.assertFalse(ROLE_PERMISSIONS["Sales User"]["Quotation"]["cancel"])
@@ -87,8 +89,9 @@ class TestRBACMatrix(IntegrationTestCase):
     def test_sales_user_can_read_sales_order(self):
         self.assertTrue(ROLE_PERMISSIONS["Sales User"]["Sales Order"]["read"])
 
-    def test_sales_user_cannot_submit_sales_order(self):
-        self.assertFalse(ROLE_PERMISSIONS["Sales User"]["Sales Order"]["submit"])
+    def test_sales_user_can_submit_sales_order(self):
+        # Same as quotation: allowed by the matrix, capped by the amount gate.
+        self.assertTrue(ROLE_PERMISSIONS["Sales User"]["Sales Order"]["submit"])
 
     def test_sales_user_cannot_submit_sales_invoice(self):
         self.assertFalse(ROLE_PERMISSIONS["Sales User"]["Sales Invoice"]["submit"])
@@ -287,9 +290,9 @@ class TestRBACToolAccess(IntegrationTestCase):
         self.assertIn("draft_quotation", tools)
         self.assertIn("submit_quotation", tools)
 
-    def test_sales_user_does_not_see_submit_cancel(self):
+    def test_sales_user_sees_submit_but_not_cancel(self):
         tools = self._tools_for("Sales User")
-        self.assertNotIn("submit_document", tools)
+        self.assertIn("submit_document", tools)
         self.assertNotIn("cancel_document", tools)
 
     def test_sales_user_does_not_see_manager_brief(self):
@@ -406,11 +409,11 @@ class TestRBACPermissionChecks(IntegrationTestCase):
         )
         self.assertTrue(result.allowed)
 
-    def test_sales_user_cannot_submit_quotation(self):
+    def test_sales_user_can_submit_quotation(self):
         result = check_ai_permission(
             user=_ROLE_USERS["Sales User"], doctype="Quotation", action="submit",
         )
-        self.assertFalse(result.allowed)
+        self.assertTrue(result.allowed)
 
     def test_sales_user_cannot_cancel_sales_order(self):
         result = check_ai_permission(
@@ -546,7 +549,7 @@ class TestRBACPermissionChecks(IntegrationTestCase):
 
     def test_denial_has_reason(self):
         result = check_ai_permission(
-            user=_ROLE_USERS["Sales User"], doctype="Quotation", action="submit",
+            user=_ROLE_USERS["Sales User"], doctype="Sales Invoice", action="submit",
         )
         self.assertFalse(result.allowed)
         self.assertIsNotNone(result.reason)

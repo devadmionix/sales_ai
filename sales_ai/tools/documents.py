@@ -45,6 +45,10 @@ Submitting is what makes a document real. A Sales Order reserves stock and commi
 delivery date; a Sales Invoice posts to the accounts. After this the document cannot be
 edited, only cancelled.
 
+Sales users may submit quotations, sales orders and delivery notes on their own only
+below the approval limit (5000 in company currency); at or above it a Sales Manager
+must submit. Only a draft can be submitted.
+
 Read the document back first and tell the user the customer and the total before doing
 this. Only a draft can be submitted.""",
 )

@@ -106,7 +106,7 @@ sales work.
 
 | Role | What the assistant can do for them |
 |---|---|
-| **Sales User** | Read and search within their User Permissions. Create and update leads, customers, contacts and opportunities. Draft quotations, revise draft lines, add notes, set follow-ups, assign work, draft emails. Cannot submit or cancel unless their role profile grants `submit`. |
+| **Sales User** | Read and search within their User Permissions. Create and update leads, customers, contacts and opportunities. Draft quotations, revise draft lines, add notes, set follow-ups, assign work, draft emails. May submit their own quotations, sales orders and delivery notes under the approval limit (5000 in company currency); at or above it a Sales Manager must submit. Cannot cancel. |
 | **Sales Manager** | Everything a Sales User can, plus submit and cancel, and usually a wider or unrestricted record scope. |
 | **Accounts User / Manager** | Sales Invoice submit and cancel, if their role has it. Reading invoices needs nothing extra. |
 | **Stock User / Manager** | Delivery Note submit and cancel, if their role has it. |
