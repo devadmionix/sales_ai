@@ -156,22 +156,12 @@ def _period_metrics(company, from_date, to_date):
 
 def _top_customer_changes(company, cur_start, cur_end, prev_start, prev_end, direction="gain", limit=5):
 	"""Customers with the biggest revenue change between periods."""
+	# The sort keyword is a fixed literal chosen from an allowlist, never
+	# interpolated input: the two query variants are fully static and all
+	# values remain bound parameters.
+	query = _TOP_CUSTOMERS_GAIN if direction != "loss" else _TOP_CUSTOMERS_LOSS
 	rows = frappe.db.sql(
-		"""
-		SELECT customer, customer_name, current_rev, previous_rev
-		FROM (
-			SELECT customer, customer_name,
-			       SUM(CASE WHEN transaction_date BETWEEN %s AND %s THEN base_grand_total ELSE 0 END) AS current_rev,
-			       SUM(CASE WHEN transaction_date BETWEEN %s AND %s THEN base_grand_total ELSE 0 END) AS previous_rev
-			FROM `tabSales Order`
-			WHERE docstatus = 1 AND company = %s
-			  AND (transaction_date BETWEEN %s AND %s OR transaction_date BETWEEN %s AND %s)
-			GROUP BY customer, customer_name
-		) t
-		WHERE current_rev != previous_rev
-		ORDER BY (current_rev - previous_rev) {order}
-		LIMIT %s
-		""".format(order="DESC" if direction == "gain" else "ASC"),
+		query,
 		(cur_start, cur_end, prev_start, prev_end, company,
 		 cur_start, cur_end, prev_start, prev_end, limit),
 		as_dict=True,
@@ -186,6 +176,33 @@ def _top_customer_changes(company, cur_start, cur_end, prev_start, prev_end, dir
 		}
 		for r in rows
 	]
+
+
+# Static variants of the top-movers query. Only the sort keyword differs;
+# keeping both fully static means no string formatting touches the SQL.
+_TOP_CUSTOMERS_BODY = """
+		SELECT customer, customer_name, current_rev, previous_rev
+		FROM (
+			SELECT customer, customer_name,
+			       SUM(CASE WHEN transaction_date BETWEEN %s AND %s THEN base_grand_total ELSE 0 END) AS current_rev,
+			       SUM(CASE WHEN transaction_date BETWEEN %s AND %s THEN base_grand_total ELSE 0 END) AS previous_rev
+			FROM `tabSales Order`
+			WHERE docstatus = 1 AND company = %s
+			  AND (transaction_date BETWEEN %s AND %s OR transaction_date BETWEEN %s AND %s)
+			GROUP BY customer, customer_name
+		) t
+		WHERE current_rev != previous_rev
+"""
+
+_TOP_CUSTOMERS_GAIN = _TOP_CUSTOMERS_BODY + """
+		ORDER BY (current_rev - previous_rev) DESC
+		LIMIT %s
+"""
+
+_TOP_CUSTOMERS_LOSS = _TOP_CUSTOMERS_BODY + """
+		ORDER BY (current_rev - previous_rev) ASC
+		LIMIT %s
+"""
 
 
 def _top_product_changes(company, cur_start, cur_end, prev_start, prev_end, limit=5):

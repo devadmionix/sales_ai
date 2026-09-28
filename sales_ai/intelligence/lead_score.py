@@ -124,8 +124,23 @@ def score_leads(company: str | None = None, limit: int = 20) -> dict:
 
 def _conversion_rates_by(field: str, company: str) -> dict[str, float]:
 	"""Calculate conversion rate for each value of a field."""
+	# Column names cannot be bound parameters, so the query is selected from
+	# static variants keyed by an allowlist. Anything else is refused rather
+	# than interpolated.
+	try:
+		query = _CONVERSION_RATE_SQL[field]
+	except KeyError:
+		raise ValueError(f"Cannot score leads by {field!r}.") from None
 	rows = frappe.db.sql(
-		f"""
+		query,
+		(company,),
+		as_dict=True,
+	)
+	return {r.attr: flt(r.converted / r.total * 100, 1) for r in rows if r.total}
+
+
+def _conversion_rate_query(field: str) -> str:
+	return f"""
 		SELECT `{field}` AS attr,
 		       COUNT(*) AS total,
 		       SUM(CASE WHEN status = 'Converted' THEN 1 ELSE 0 END) AS converted
@@ -135,8 +150,11 @@ def _conversion_rates_by(field: str, company: str) -> dict[str, float]:
 		  AND `{field}` != ''
 		GROUP BY `{field}`
 		HAVING total >= 2
-		""",
-		(company,),
-		as_dict=True,
-	)
-	return {r.attr: flt(r.converted / r.total * 100, 1) for r in rows if r.total}
+		"""
+
+
+# Built once from literals only: the only fields ever scored by. The
+# f-string above never sees outside input.
+_CONVERSION_RATE_SQL = {
+	field: _conversion_rate_query(field) for field in ("utm_source", "territory", "industry")
+}

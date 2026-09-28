@@ -211,7 +211,37 @@
   {
    "if_owner": 1,
    "read": 1,
-   "role": "All"
+   "role": "Sales User"
+  },
+  {
+   "if_owner": 1,
+   "read": 1,
+   "role": "Sales Manager"
+  },
+  {
+   "if_owner": 1,
+   "read": 1,
+   "role": "Sales Master Manager"
+  },
+  {
+   "if_owner": 1,
+   "read": 1,
+   "role": "Sales Director"
+  },
+  {
+   "if_owner": 1,
+   "read": 1,
+   "role": "Accounts User"
+  },
+  {
+   "if_owner": 1,
+   "read": 1,
+   "role": "Accounts Manager"
+  },
+  {
+   "if_owner": 1,
+   "read": 1,
+   "role": "Customer"
   }
  ],
  "row_format": "Dynamic",

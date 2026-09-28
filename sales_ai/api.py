@@ -429,16 +429,20 @@ def _frames(stream: Generator[Any, None, dict[str, Any]]) -> Iterator[str]:
 			try:
 				event = next(stream)
 			except StopIteration as finished:
+				# Required here because the generator body runs after the request
+				# transaction has committed; the run's rows must persist explicitly.
 				frappe.db.commit()
 				yield _frame("done", finished.value)
 				return
 			yield _frame(*_translate(event))
 	except _EXPECTED as e:
 		# Something the user can act on: app disabled, no access, missing record.
+		# Required here for the same reason: persist the run's rows explicitly.
 		frappe.db.commit()
 		yield _frame("error", {"message": str(e)})
 	except Exception:
 		# Keep the failed run on record, then tell the user without leaking internals.
+		# Required here for the same reason: persist the run's rows explicitly.
 		frappe.db.commit()
 		frappe.log_error(title="Sales AI: run failed", message=frappe.get_traceback())
 		yield _frame("error", {"message": _("The assistant could not finish. The error has been logged.")})

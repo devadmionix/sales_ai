@@ -134,12 +134,16 @@ def _run(stream: Any, *, label: str) -> None:
 				event = next(stream)
 			except StopIteration as finished:
 				_settle(finished.value)
+				# Required here because this runs on a worker outside any request
+				# transaction; the run and its notifications must persist explicitly.
 				frappe.db.commit()
 				return
 			run = _publish(event, run)
 	except Exception:
 		frappe.db.rollback()
 		frappe.log_error(title=f"Sales AI: unattended run failed ({label})")
+		# Required here because the error log and partial rows must persist
+		# after the rollback above; there is no request transaction to do it.
 		frappe.db.commit()
 
 

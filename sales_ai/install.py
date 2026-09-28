@@ -37,6 +37,8 @@ def _ensure_profile():
         settings.default_agent_profile = PROFILE_NAME
         settings.save(ignore_permissions=True)
 
+    # Required here because install/migrate steps run in one long transaction;
+    # the shipped profile and settings pointer must be visible to later steps.
     frappe.db.commit()
 
 

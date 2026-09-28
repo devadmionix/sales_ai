@@ -42,7 +42,10 @@ def cross_sell(customer: str, company: str | None = None, limit: int = 5) -> dic
 			"message": "No purchase history — cannot recommend products without evidence.",
 		}
 
-	# Find other customers who bought the same items
+	# Find other customers who bought the same items.
+	# Safe by construction: only the count of bound parameters is formatted
+	# into the SQL (a run of "%s" placeholders); every value travels as a
+	# bound parameter, never as SQL text.
 	placeholders = ", ".join(["%s"] * len(bought))
 	peers_with_overlap = frappe.db.sql(
 		f"""
@@ -66,6 +69,7 @@ def cross_sell(customer: str, company: str | None = None, limit: int = 5) -> dic
 		}
 
 	# What did those peers buy that this customer hasn't?
+	# Same pattern as above: placeholder count only; values are bound parameters.
 	peer_placeholders = ", ".join(["%s"] * len(peers_with_overlap))
 	bought_placeholders = ", ".join(["%s"] * len(bought))
 	suggestions = frappe.db.sql(

@@ -85,6 +85,7 @@ def run(
 			outcomes.append(_run_case(case, profile.name))
 	except Exception:
 		eval_run.db_set({"status": "Failed", "error": frappe.get_traceback(with_context=False)})
+		# Required here because the failure status must persist before re-raising.
 		frappe.db.commit()
 		raise
 
@@ -223,6 +224,8 @@ def _record(eval_run: Any, cases: list[Any], outcomes: list[Outcome]) -> None:
 		}
 	)
 	eval_run.save(ignore_permissions=True)
+	# Required here because each case rolls back its own writes; the summary
+	# must be committed outside those rolled-back transactions.
 	frappe.db.commit()
 
 

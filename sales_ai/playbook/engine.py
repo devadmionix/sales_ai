@@ -122,6 +122,8 @@ def execute(
 		reference_doctype=reference_doctype,
 		reference_name=reference_name,
 	)
+	# Required here because the worker picks the run up by name after this;
+	# without the commit the run row would be invisible to the next process.
 	frappe.db.commit()
 	advance(run.name)
 
@@ -241,6 +243,8 @@ def advance(playbook_run: str) -> None:
 		frappe.log_error(title=f"Sales AI: playbook run failed ({playbook_run})")
 		run.reload()
 		run.finish("Failed", error=frappe.get_traceback(with_context=False)[:2000])
+		# Required here because the failure record must survive even though the
+		# step's transaction was rolled back above.
 		frappe.db.commit()
 	finally:
 		frappe.flags.sales_ai_playbook_run = None
@@ -299,6 +303,8 @@ def _finish(run, outcome: Park | Halt) -> None:
 				run.summary or outcome.message,
 			)
 
+	# Required here because a parked or finished run must be resumable by a
+	# different process (scheduler/worker) that reads the row after this returns.
 	frappe.db.commit()
 
 

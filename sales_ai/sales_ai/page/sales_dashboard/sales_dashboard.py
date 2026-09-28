@@ -1,16 +1,23 @@
 """Backend KPI calculations for the Sales Dashboard page."""
 
+# SQL safety note: every value in the queries below travels as a bound
+# parameter. The only formatted fragment is `owner_sql`, which is a fixed
+# literal produced by `sales_ai.guard.ownership.sql_owner_clause` (empty for
+# managers/admins, otherwise `AND <alias>.owner = %s` with a validated alias
+# and a bound user). No request input is ever formatted into SQL.
+
 from __future__ import annotations
 
 import frappe
 from frappe.utils import flt, getdate, nowdate, add_days, get_first_day, get_last_day
 
+from sales_ai.guard.ownership import is_owner_restricted, sql_owner_clause
+from sales_ai.guard.permissions import check_ai_permission
+
 
 @frappe.whitelist()
 def get_kpis(company: str | None = None, from_date: str | None = None, to_date: str | None = None):
 	"""Return all dashboard KPIs for the given filters."""
-	from sales_ai.guard.permissions import check_ai_permission
-	from sales_ai.guard.ownership import sql_owner_clause, is_owner_restricted
 
 	# Only users with Sales Order read access may view the dashboard.
 	result = check_ai_permission(doctype="Sales Order", action="read")

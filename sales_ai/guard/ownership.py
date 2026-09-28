@@ -20,6 +20,7 @@ Rules:
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import frappe
@@ -157,12 +158,23 @@ def sql_owner_clause(doctype: str, alias: str | None = None, user: str | None = 
 
     Application code should place the returned fragment in an existing WHERE clause.
     Managers/admins receive an empty fragment, preserving their existing visibility.
+
+    The fragment is a fixed literal: the only variable part is the table alias,
+    which must be a plain SQL identifier supplied by the calling code (never by
+    request input), and the user travels as a bound parameter.
     """
     user = user or frappe.session.user
     if not is_owner_restricted(user, doctype):
         return "", ()
+    if alias is not None and not _ALIAS_PATTERN.match(alias):
+        raise ValueError(f"Invalid table alias {alias!r}.")
     column = f"{alias}.owner" if alias else "owner"
     return f" AND {column} = %s", (user,)
+
+
+# Table aliases spliced into the fragment above. Identifiers only, so the
+# fragment stays a fixed literal.
+_ALIAS_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 def owned_condition(doctype: str, user: str | None = None) -> list[list[Any]]:
     """Return a Frappe filter condition for application-level list/analytics code."""
